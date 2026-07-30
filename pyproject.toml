@@ -1,0 +1,29 @@
+[project]
+name = "thief-agent"
+version = "0.1.0"
+description = "Thief peer for the P2P Police-Thief league (team amireman). Day-1 local-playable core."
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/thief_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

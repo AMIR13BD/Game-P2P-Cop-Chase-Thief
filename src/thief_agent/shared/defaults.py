@@ -1,0 +1,38 @@
+"""Appendix F default game contract (used by CLI/tests and the example config)."""
+
+DEFAULT_GAME_CONFIG = {
+    "schema_version": "1.0",
+    "board_and_agents": {
+        "grid_size": 7,
+        "num_agents": 2,
+        "thief_start": [3, 3],
+        "cop_start": [0, 0],
+        "axis_origin_corner": "top-left",
+        "axis_start_index": 0,
+    },
+    "world": {"map_area": "New York", "hint_max_words": 15},
+    "movement_and_barriers": {
+        "move_set": ["N", "S", "E", "W", "STAY"],
+        "max_barriers": 14,
+        "max_moves": 35,
+        "survival_threshold": 35,
+    },
+    "scoring": {
+        "capture_cop": 20,
+        "capture_thief": 5,
+        "survival_cop": 5,
+        "survival_thief": 10,
+        "tie_score": 2,
+    },
+    "pheromones": {
+        "pheromone_center_intensity": 0.9,
+        "pheromone_decay": 0.10,
+        "pheromone_grid_size": 5,
+    },
+    "network_and_league": {
+        "num_games": 1,
+        "diversity_reward": 10,
+        "min_games_to_pass": 2,
+        "max_games_per_team": 10,
+    },
+}

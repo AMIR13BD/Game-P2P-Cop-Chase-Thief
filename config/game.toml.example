@@ -1,0 +1,18 @@
+# PRIVATE per-peer config (thief). Anything the two sides must agree on lives in the
+# signed game.json, which overrides any parallel key here. No secrets in this file.
+version = "0.1.0"
+
+[game]
+group_name = "amireman-thief"
+group_id = "amireman-thief"
+natural_role = "thief"
+members = ["206663338", "323047407"]
+
+[strategy]
+# police_class / thief_class point at brain subclasses (Day-1 uses shipped baselines)
+
+[trash_talk]
+provider = "template"   # offline, zero tokens (default)
+
+[play]
+seed = 1234

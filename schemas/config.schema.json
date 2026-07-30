@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shared signed game config (Appendix F)",
+  "type": "object",
+  "required": ["board_and_agents", "movement_and_barriers", "scoring", "pheromones"],
+  "properties": {
+    "board_and_agents": {
+      "type": "object",
+      "required": ["grid_size", "num_agents", "thief_start", "cop_start"],
+      "properties": {
+        "grid_size": {"type": "integer", "minimum": 7},
+        "num_agents": {"const": 2},
+        "thief_start": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+        "cop_start": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "world": {"type": "object", "properties": {"map_area": {"type": "string"},
+      "hint_max_words": {"type": "integer", "minimum": 1}}},
+    "movement_and_barriers": {
+      "type": "object",
+      "required": ["move_set", "max_barriers", "max_moves", "survival_threshold"],
+      "properties": {
+        "move_set": {"type": "array", "items": {"enum": ["N", "S", "E", "W", "STAY"]}},
+        "max_barriers": {"type": "integer", "minimum": 14},
+        "max_moves": {"type": "integer", "minimum": 35},
+        "survival_threshold": {"type": "integer", "minimum": 35}
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "properties": {
+        "capture_cop": {"const": 20}, "capture_thief": {"const": 5},
+        "survival_cop": {"const": 5}, "survival_thief": {"const": 10}, "tie_score": {"const": 2}
+      }
+    },
+    "pheromones": {
+      "type": "object",
+      "properties": {
+        "pheromone_center_intensity": {"const": 0.9},
+        "pheromone_decay": {"const": 0.1},
+        "pheromone_grid_size": {"const": 5}
+      }
+    }
+  }
+}

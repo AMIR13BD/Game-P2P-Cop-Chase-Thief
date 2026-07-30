@@ -1,0 +1,16 @@
+__pycache__/
+*.py[oc]
+build/
+dist/
+*.egg-info
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+# Secrets (never commit)
+.env
+*.key
+*.pem
+credentials.json
+token.json
+logs/
