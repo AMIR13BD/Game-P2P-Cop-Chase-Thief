@@ -87,3 +87,13 @@ def cmd_netplay(args: argparse.Namespace) -> int:
 def cmd_simulate(args: argparse.Namespace) -> int:
     print(_sdk().simulate(validate(DEFAULT_GAME_CONFIG), turns=args.turns))
     return 0
+
+
+def cmd_tournament(args: argparse.Namespace) -> int:
+    sdk = _sdk()
+    cfg = validate(DEFAULT_GAME_CONFIG)
+    seeds = list(range(1, args.seeds + 1))
+    for role in ("police", "thief"):
+        r = sdk.tournament(cfg, role, seeds)
+        print(f"{role} champion={r['champion']} {r['metric']}={r['score']} games={r['games']}")
+    return 0

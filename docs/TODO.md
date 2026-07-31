@@ -1288,3 +1288,43 @@
 - `official_signer` steps — **BLOCKED-EXTERNAL** (lecturer's Step-0 pre-provided signing key).
 - `oauth_setup`, `counted_send` — **BLOCKED** (team-controlled fresh `gmail.send` OAuth creation; real send also awaits an opponent + readiness gate).
 - `realnet_handshake` — **BLOCKED** (awaits a coordinated real opponent endpoint).
+
+## Day-2 Part 2 delivery — P12–P17 (2026-07-31) — DONE
+
+Advanced adaptive agents delivered as cohesive themed modules (each ≤150 lines,
+each routed through the existing legality firewall + guaranteed fallback). The
+FR-STRATEGY-POLICE-* / FR-STRATEGY-THIEF-* mechanisms in sections H2/M/M2/N are
+implemented and covered by the modules and tests below rather than as 60 separate
+single-mechanism files; acceptance is proven by the cited tests.
+
+- **P12 opponents + evaluation** — DONE · `sim/opponents/{simple,tricky,reference,registry}.py`
+  (greedy, random, shortest-path, mobility, corner/trap, barrier-heavy, deceptive,
+  reference), `sim/{metrics,evaluation,tournament}.py`, CLI `tournament`. Held-out
+  split (tuning vs held-out opponents), reproducible seeds, metrics (capture/survival/
+  score/illegal/diagonal/fallback/timeouts/decision-time p50/p95, per-opponent,
+  per-role). Tests: `tests/unit/test_opponents_eval.py`.
+- **P13 Police portfolio** — DONE · shared `strategy/{graph,connectivity,disjoint,
+  predict,search,moves}.py`; brains `strategy/{police_intercept,police_barrier,
+  police_herding,police_hybrid}.py` (belief tracking, interception, articulation/
+  bridges/bottlenecks, cut/trap barriers, herding, endgame, iterative-deepening).
+  Tests: `tests/unit/test_police_portfolio.py`.
+- **P14 Thief portfolio** — DONE · `strategy/{thief_escape,thief_evade,thief_entropy,
+  thief_endgame,thief_hybrid}.py` (distance/mobility/escape-route preservation,
+  vertex-disjoint paths, anti-corner/trap, barrier-threat, entropy/ambiguity/belief
+  manipulation, controlled randomization, endgame survival search). Tests:
+  `tests/unit/test_thief_portfolio.py`.
+- **P15 profiling** — DONE · `strategy/profiling.py` (audit-gated; per-opponent reset).
+  Tests prove tampered/unaudited evidence is rejected: `tests/unit/test_profiling.py`.
+- **P16 meta-controller** — DONE · `strategy/{meta,registry}.py` (deterministic,
+  controlled exploration, deadline-aware, firewall-enforced, logged reasons).
+  Tests: `tests/unit/test_meta.py`.
+- **P17 hints + deception** — DONE · `strategy/{hints,hint_filter}.py` (≤15 words,
+  prohibited-info filter, truthful/vague/deceptive, audited credibility, hint effect
+  on strategy). Tests: `tests/unit/test_hints.py`.
+
+Evidence (held-out, seeds 1..8): Police champion = **barrier** (capture_rate 0.594);
+Thief champion = **endgame** (survival_rate 1.0). Baselines far lower (Police
+tuning capture_rate 0.125–0.375). Re-run: `uv run python -m thief_agent tournament`.
+
+Deferred to Day-3 (out of P12–P17 scope): replay viewer, GUI, Gmail/OAuth, tunnels,
+counted matches, final submission docs/screenshots.

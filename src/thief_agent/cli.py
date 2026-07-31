@@ -42,6 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
     m = sub.add_parser("simulate", help="run a deterministic headless batch")
     m.add_argument("--turns", type=int, default=10000)
     m.set_defaults(func=commands.cmd_simulate)
+
+    tn = sub.add_parser("tournament", help="deterministic held-out champion selection")
+    tn.add_argument("--seeds", type=int, default=8)
+    tn.set_defaults(func=commands.cmd_tournament)
     return p
 
 

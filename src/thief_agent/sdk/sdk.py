@@ -76,3 +76,9 @@ class AgentSDK:
     def verify_match(self, out, gid) -> dict:
         """Run the strict counted-match cross-repo audit over emitted artifacts."""
         return verify_match(out, gid, self.signer)
+
+    def tournament(self, cfg, role, seeds) -> dict:
+        """Deterministic held-out champion selection for a role (P12 evaluation)."""
+        from ..sim.tournament import select_champion
+
+        return select_champion(cfg, role, list(seeds))

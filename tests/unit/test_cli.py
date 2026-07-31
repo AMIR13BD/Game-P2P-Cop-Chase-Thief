@@ -24,6 +24,13 @@ def test_simulate_subcommand_runs(capsys):
     assert rc == 0 and "turns" in out
 
 
+def test_tournament_subcommand_runs(capsys):
+    rc = main(["tournament", "--seeds", "2"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "police champion=" in out and "thief champion=" in out
+
+
 def test_artifacts_subcommand_emits_and_verifies(tmp_path, capsys):
     out_dir = tmp_path / "artifacts"
     rc = main(["artifacts", "--out", str(out_dir), "--seed", "1"])
