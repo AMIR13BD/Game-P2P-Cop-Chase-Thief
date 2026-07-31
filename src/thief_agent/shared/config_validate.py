@@ -1,33 +1,22 @@
-"""Appendix F enforcement: fixed values, minimums (raise-only), negotiable defaults."""
+"""Strict Appendix F validation. Fail closed on missing/unknown fields, wrong fixed
+values, or below-floor minimums. Fills negotiable defaults and returns a flat dict."""
 
 from ..domain.moveset import validate_move_set
 from ..exceptions import ConfigError
-
-FIXED = {
-    "num_agents": 2,
-    "pheromone_center_intensity": 0.9,
-    "pheromone_decay": 0.10,
-    "pheromone_grid_size": 5,
-    "capture_cop": 20,
-    "capture_thief": 5,
-    "survival_cop": 5,
-    "survival_thief": 10,
-    "tie_score": 2,
-}
-MINIMUMS = {"grid_size": 7, "max_barriers": 14, "max_moves": 35, "survival_threshold": 35}
-SUB_GAMES = 6  # fixed series length (illustrative num_games=1 does not override)
+from . import config_spec as spec
 
 
-def _check_fixed(flat: dict) -> None:
-    for key, want in FIXED.items():
-        if key in flat and flat[key] != want:
-            raise ConfigError(f"fixed parameter {key}={flat[key]} must equal {want}")
-
-
-def _check_min(flat: dict) -> None:
-    for key, floor in MINIMUMS.items():
-        if key in flat and flat[key] < floor:
-            raise ConfigError(f"minimum parameter {key}={flat[key]} below floor {floor}")
+def _require_structure(cfg: dict) -> None:
+    for cat, fields in spec.REQUIRED.items():
+        if cat not in cfg or not isinstance(cfg[cat], dict):
+            raise ConfigError(f"missing required config category '{cat}'")
+        present = set(cfg[cat])
+        missing = set(fields) - present
+        if missing:
+            raise ConfigError(f"category '{cat}' missing fields {sorted(missing)}")
+        unknown = present - set(fields)
+        if unknown:
+            raise ConfigError(f"category '{cat}' has unknown fields {sorted(unknown)}")
 
 
 def flatten(cfg: dict) -> dict:
@@ -35,18 +24,37 @@ def flatten(cfg: dict) -> dict:
     for val in cfg.values():
         if isinstance(val, dict):
             flat.update(val)
-    flat.update({k: v for k, v in cfg.items() if not isinstance(v, dict)})
     return flat
 
 
-def validate(cfg: dict) -> dict:
-    """Validate and return a normalized flat parameter dict (fail closed)."""
-    flat = flatten(cfg)
+def _check_values(flat: dict) -> None:
     validate_move_set(flat.get("move_set"))
-    _check_fixed(flat)
-    _check_min(flat)
-    flat.setdefault("map_area", "New York")
-    if not flat["map_area"]:
-        flat["map_area"] = "New York"
-    flat["sub_games"] = SUB_GAMES
+    for key, want in spec.FIXED.items():
+        if flat[key] != want:
+            raise ConfigError(f"fixed parameter {key}={flat[key]} must equal {want}")
+    for key, floor in spec.MINIMUMS.items():
+        if flat[key] < floor:
+            raise ConfigError(f"minimum parameter {key}={flat[key]} below floor {floor}")
+
+
+def _check_positions(flat: dict) -> None:
+    n = flat["grid_size"]
+    for key in ("thief_start", "cop_start"):
+        pos = flat[key]
+        if (
+            not isinstance(pos, (list, tuple))
+            or len(pos) != 2
+            or not all(isinstance(v, int) and 0 <= v < n for v in pos)
+        ):
+            raise ConfigError(f"{key}={pos} is not a valid cell on a {n}x{n} board")
+
+
+def validate(cfg: dict) -> dict:
+    _require_structure(cfg)
+    flat = flatten(cfg)
+    _check_values(flat)
+    _check_positions(flat)
+    if not flat.get("map_area"):
+        flat["map_area"] = spec.NEG_DEFAULTS["map_area"]
+    flat["sub_games"] = spec.SUB_GAMES
     return flat

@@ -1,4 +1,7 @@
-"""Step-0 declaration: hardware + code version + group + commit hash, then signed."""
+"""Step-0 declaration: hardware + code version + group + Git commit, sealed & signed.
+
+`github_commit` is required (no silent 'unknown'); the caller resolves it once at
+the application boundary and passes it in, keeping domain code pure."""
 
 from typing import Any
 
@@ -7,7 +10,7 @@ from ..shared.sysinfo import system_spec
 from ..shared.version import CODE_VERSION
 
 
-def step0_payload(group_name: str, sub_game: int, github_commit: str = "unknown") -> dict[str, Any]:
+def step0_payload(group_name: str, sub_game: int, github_commit: str) -> dict[str, Any]:
     return {
         "step": 0,
         "type": "system_spec",
@@ -19,9 +22,8 @@ def step0_payload(group_name: str, sub_game: int, github_commit: str = "unknown"
     }
 
 
-def make_step0_record(group_name: str, sub_game: int, signer) -> dict:
-    """Sealed + signed Step-0 record. `signer` is a dev/test or official Signer."""
-    payload = step0_payload(group_name, sub_game)
+def make_step0_record(group_name: str, sub_game: int, signer, github_commit: str) -> dict:
+    payload = step0_payload(group_name, sub_game, github_commit)
     sealed = seal(payload)
     return {
         "payload": payload,

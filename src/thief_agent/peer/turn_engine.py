@@ -1,6 +1,7 @@
 """Local sub-game engine: commit-reveal per turn, scent, capture/survival checks.
 
-Drives the state machine and returns outcome, scores, sealed records and trajectory."""
+Drives the state machine and returns outcome, scores, sealed records and trajectory.
+Defined failures (illegal transition / crypto) propagate to the caller's safe_play."""
 
 from ..constants import ORTHO
 from ..domain import capture as cap
@@ -34,24 +35,18 @@ def _obs(role, pos, board, scent, hint, step, max_b, used) -> Observation:
     )
 
 
-def run_sub_game(police_brain, thief_brain, cfg, group_name, signer) -> dict:
+def run_sub_game(police_brain, thief_brain, cfg, group_name, signer, github_commit) -> dict:
     n = cfg["grid_size"]
     board = Board(n)
     police, thief = tuple(cfg["cop_start"]), tuple(cfg["thief_start"])
     max_moves, surv, max_b = cfg["max_moves"], cfg["survival_threshold"], cfg["max_barriers"]
-    ci, rho, side = (
-        cfg["pheromone_center_intensity"],
-        cfg["pheromone_decay"],
-        cfg["pheromone_grid_size"],
-    )
+    rho = cfg["pheromone_decay"]
     sm = states.StateMachine()
     for st in (states.CONFIG, states.NEGOTIATION, states.STEP0, states.READY):
         sm.to(st)
-    records = [make_step0_record(group_name, cfg.get("sub_game_number", 1), signer)]
-    p_scent: dict = {}
-    t_scent: dict = {}
-    smell.emit(p_scent, police, board, ci, side)
-    smell.emit(t_scent, thief, board, ci, side)
+    records = [make_step0_record(group_name, cfg.get("sub_game_number", 1), signer, github_commit)]
+    p_scent = smell.step_update({}, police, board, rho)
+    t_scent = smell.step_update({}, thief, board, rho)
     traj: list = []
     illegal = diagonal = used = step = 0
     hint_p = hint_t = ""
@@ -87,7 +82,6 @@ def run_sub_game(police_brain, thief_brain, cfg, group_name, signer) -> dict:
                 break
         else:
             police = step_move(police, act.direction) if act.kind == "MOVE" else police
-            smell.emit(p_scent, police, board, ci, side)
             seal_turn("police", police, act, hint_p)
             if cap.captured_by_landing(police, thief):
                 outcome = "capture"
@@ -103,12 +97,12 @@ def run_sub_game(police_brain, thief_brain, cfg, group_name, signer) -> dict:
         diagonal += 1 if (act.kind == "MOVE" and act.direction not in ORTHO) else 0
         hint_t = thief_brain.hint(obs)
         thief = step_move(thief, act.direction) if act.kind == "MOVE" else thief
-        smell.emit(t_scent, thief, board, ci, side)
         seal_turn("thief", thief, act, hint_t)
         if cap.captured_by_landing(police, thief):
             outcome = "capture"
             break
-        p_scent, t_scent = smell.decay(p_scent, rho), smell.decay(t_scent, rho)
+        p_scent = smell.step_update(p_scent, police, board, rho)
+        t_scent = smell.step_update(t_scent, thief, board, rho)
         traj.append((step, tuple(police), tuple(thief)))
         if step >= surv:
             outcome = "survival"

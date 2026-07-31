@@ -1,23 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Shared signed game config (Appendix F)",
+  "title": "Shared signed game config (Appendix F, schema_version 1.2)",
   "type": "object",
-  "required": ["board_and_agents", "movement_and_barriers", "scoring", "pheromones"],
+  "required": ["schema_version", "board_and_agents", "world", "movement_and_barriers",
+               "scoring", "pheromones", "network_and_league", "rate_limiter_gatekeeper"],
   "properties": {
+    "schema_version": {"const": "1.2"},
     "board_and_agents": {
-      "type": "object",
-      "required": ["grid_size", "num_agents", "thief_start", "cop_start"],
+      "type": "object", "additionalProperties": false,
+      "required": ["grid_size", "num_agents", "thief_start", "cop_start",
+                   "axis_origin_corner", "axis_start_index"],
       "properties": {
         "grid_size": {"type": "integer", "minimum": 7},
         "num_agents": {"const": 2},
         "thief_start": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
-        "cop_start": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}
+        "cop_start": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+        "axis_origin_corner": {"type": "string"},
+        "axis_start_index": {"type": "integer"}
       }
     },
-    "world": {"type": "object", "properties": {"map_area": {"type": "string"},
-      "hint_max_words": {"type": "integer", "minimum": 1}}},
+    "world": {
+      "type": "object", "additionalProperties": false,
+      "required": ["map_area", "hint_max_words"],
+      "properties": {"map_area": {"type": "string"},
+                     "hint_max_words": {"type": "integer", "minimum": 1}}
+    },
     "movement_and_barriers": {
-      "type": "object",
+      "type": "object", "additionalProperties": false,
       "required": ["move_set", "max_barriers", "max_moves", "survival_threshold"],
       "properties": {
         "move_set": {"type": "array", "items": {"enum": ["N", "S", "E", "W", "STAY"]}},
@@ -27,18 +36,49 @@
       }
     },
     "scoring": {
-      "type": "object",
+      "type": "object", "additionalProperties": false,
+      "required": ["capture_cop", "capture_thief", "survival_cop", "survival_thief",
+                   "tie_score", "technical_loss"],
       "properties": {
         "capture_cop": {"const": 20}, "capture_thief": {"const": 5},
-        "survival_cop": {"const": 5}, "survival_thief": {"const": 10}, "tie_score": {"const": 2}
+        "survival_cop": {"const": 5}, "survival_thief": {"const": 10},
+        "tie_score": {"const": 2}, "technical_loss": {"const": 0}
       }
     },
     "pheromones": {
-      "type": "object",
+      "type": "object", "additionalProperties": false,
+      "required": ["pheromone_center_intensity", "pheromone_decay", "pheromone_grid_size"],
       "properties": {
         "pheromone_center_intensity": {"const": 0.9},
         "pheromone_decay": {"const": 0.1},
         "pheromone_grid_size": {"const": 5}
+      }
+    },
+    "network_and_league": {
+      "type": "object", "additionalProperties": false,
+      "required": ["response_timeout_sec", "watchdog_timeout_sec", "num_games",
+                   "diversity_reward", "min_games_to_pass", "token_budget_per_series",
+                   "max_games_per_team"],
+      "properties": {
+        "response_timeout_sec": {"type": "integer", "minimum": 1},
+        "watchdog_timeout_sec": {"type": "integer", "minimum": 1},
+        "num_games": {"type": "integer", "minimum": 1},
+        "diversity_reward": {"type": "integer"},
+        "min_games_to_pass": {"type": "integer", "minimum": 2},
+        "token_budget_per_series": {"type": "integer", "minimum": 1},
+        "max_games_per_team": {"type": "integer", "minimum": 1}
+      }
+    },
+    "rate_limiter_gatekeeper": {
+      "type": "object", "additionalProperties": false,
+      "required": ["requests_per_minute", "concurrent_requests", "retry_backoff_sec",
+                   "max_retries", "queue_depth"],
+      "properties": {
+        "requests_per_minute": {"type": "integer", "minimum": 30},
+        "concurrent_requests": {"type": "integer", "minimum": 2},
+        "retry_backoff_sec": {"type": "integer", "minimum": 5},
+        "max_retries": {"type": "integer", "minimum": 3},
+        "queue_depth": {"type": "integer", "minimum": 100}
       }
     }
   }

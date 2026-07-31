@@ -1,9 +1,11 @@
 """Run a local six-sub-game series with role alternation and fresh per-game state.
 
-Self-play: both sides use this repo's brains. `natural_role` is this repo's
-submission role (POLICE for police/, THIEF for thief/)."""
+Each sub-game runs under safe_play (defined failures -> technical 0/0) and a final
+mutual audit; a failed audit is a technical loss."""
 
 from ..constants import Role, complement
+from ..peer.audit import run_audit
+from ..peer.technical import safe_play, technical_result
 from ..peer.turn_engine import run_sub_game
 from ..strategy.police_greedy import PoliceGreedyBrain
 from ..strategy.rng import make_rng
@@ -17,7 +19,14 @@ def role_for(natural: Role, sub_game: int) -> Role:
     return natural if sub_game % 2 == 1 else complement(natural)
 
 
-def run_series(cfg: dict, natural_role: Role, group_name: str, signer, seed: int = 1234) -> dict:
+def run_series(
+    cfg: dict,
+    natural_role: Role,
+    group_name: str,
+    signer,
+    seed: int = 1234,
+    github_commit: str = "uncommitted",
+) -> dict:
     subs: list[dict] = []
     role_seq: list[str] = []
     self_total = opp_total = 0
@@ -26,7 +35,15 @@ def run_series(cfg: dict, natural_role: Role, group_name: str, signer, seed: int
         role_seq.append(self_role.value)
         police = PoliceGreedyBrain(make_rng(seed + n))
         thief = ThiefDistanceBrain(make_rng(seed + 100 + n))
-        res = run_sub_game(police, thief, {**cfg, "sub_game_number": n}, group_name, signer)
+        res = safe_play(
+            lambda p=police, t=thief, i=n: run_sub_game(
+                p, t, {**cfg, "sub_game_number": i}, group_name, signer, github_commit
+            )
+        )
+        if res["outcome"] != "technical":
+            audit = run_audit(res["records"], signer)
+            if not audit["passed"]:
+                res = technical_result("audit_failed", {"failed_steps": audit["failed_steps"]})
         if self_role is Role.POLICE:
             self_s, opp_s = res["police_score"], res["thief_score"]
         else:

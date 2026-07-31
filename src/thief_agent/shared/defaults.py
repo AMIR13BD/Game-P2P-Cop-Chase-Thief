@@ -1,7 +1,8 @@
-"""Appendix F default game contract (used by CLI/tests and the example config)."""
+"""Appendix F default game contract (schema_version 1.2). Single source for
+CLI/tests and the example config. Every mandatory shared field is present."""
 
 DEFAULT_GAME_CONFIG = {
-    "schema_version": "1.0",
+    "schema_version": "1.2",
     "board_and_agents": {
         "grid_size": 7,
         "num_agents": 2,
@@ -23,6 +24,7 @@ DEFAULT_GAME_CONFIG = {
         "survival_cop": 5,
         "survival_thief": 10,
         "tie_score": 2,
+        "technical_loss": 0,
     },
     "pheromones": {
         "pheromone_center_intensity": 0.9,
@@ -30,9 +32,19 @@ DEFAULT_GAME_CONFIG = {
         "pheromone_grid_size": 5,
     },
     "network_and_league": {
+        "response_timeout_sec": 30,
+        "watchdog_timeout_sec": 60,
         "num_games": 1,
         "diversity_reward": 10,
         "min_games_to_pass": 2,
+        "token_budget_per_series": 200000,
         "max_games_per_team": 10,
+    },
+    "rate_limiter_gatekeeper": {
+        "requests_per_minute": 30,
+        "concurrent_requests": 2,
+        "retry_backoff_sec": 5,
+        "max_retries": 3,
+        "queue_depth": 100,
     },
 }

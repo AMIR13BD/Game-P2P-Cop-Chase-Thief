@@ -1,13 +1,13 @@
 """Pre-game negotiation: sign agreed terms and refuse to play on any mismatch.
 
-Handshake shape adapted from the reference implementation's negotiation module
-((c) GTAI, Educational-Use EULA); re-implemented. See docs/REUSE-REGISTER.md.
-"""
+Comparison uses canonical serialization (byte-level), never Python dict equality,
+so key order does not matter and int 1 != float 1.0. Handshake shape adapted from
+the reference negotiation module ((c) GTAI, EULA); re-implemented."""
 
 from typing import Any
 
 from ..exceptions import CryptoError
-from .crypto import commit_of, fresh_nonce, verify
+from .crypto import canonical_json, commit_of, fresh_nonce, verify
 
 
 class Negotiation:
@@ -17,7 +17,6 @@ class Negotiation:
         self._nonce = fresh_nonce()
 
     def signed(self) -> dict:
-        """My agreement message: terms + nonce + signature over both + identity."""
         return {
             "terms": self.terms,
             "nonce": self._nonce,
@@ -26,8 +25,9 @@ class Negotiation:
         }
 
     def verify_peer(self, message: dict) -> dict:
-        """Verify the opponent signed byte-identical terms; raise on mismatch."""
-        if message.get("terms") != self.terms:
-            raise CryptoError("agreement terms mismatch; refusing to play")
-        verify(message["terms"], message["nonce"], message["signature"])
+        """Verify byte-identical canonical terms + a valid signature; raise otherwise."""
+        theirs = message.get("terms", {})
+        if canonical_json(theirs) != canonical_json(self.terms):
+            raise CryptoError("agreement terms mismatch (canonical); refusing to play")
+        verify(theirs, message["nonce"], message["signature"])
         return message.get("identity", {})
