@@ -11,7 +11,8 @@ from thief_agent.infra import gmail_auth as ga
 from thief_agent.infra import gmail_report as gr
 
 
-def _result(n=6, technical=False, confirmed=True, tampered=False):
+def _result(n=6, technical=False, tampered=False):
+    """A real counted two-peer result (the only kind that may ever be sent)."""
     subs = [
         {
             "sub_game_number": i + 1,
@@ -20,25 +21,36 @@ def _result(n=6, technical=False, confirmed=True, tampered=False):
         }
         for i in range(n)
     ]
-    return {"sub_games": subs, "mutual_agreement": {"confirmed": confirmed, "sha256": "a" * 64}}
+    ma = {
+        "confirmed": True,
+        "sha256": "a" * 64,
+        "mode": "counted-two-peer",
+        "confirmations": {
+            "p": {"group": "p", "final_sha256": "h"},
+            "t": {"group": "t", "final_sha256": "h"},
+        },
+    }
+    return {"sub_games": subs, "mutual_agreement": ma}
 
 
-def test_gate_requires_six_clean_confirmed():
+def test_gate_requires_six_clean_counted():
     assert gr.should_send(_result())[0] is True
     assert gr.should_send(_result(n=5))[0] is False
     assert gr.should_send(_result(technical=True))[0] is False
     assert gr.should_send(_result(tampered=True))[0] is False
-    assert gr.should_send(_result(confirmed=False))[0] is False
     assert gr.should_send("nope")[0] is False
+
+
+def test_self_play_or_dev_result_never_sent():
+    # A local-dev (self-play) result has no counted-two-peer agreement -> never sent,
+    # even though its 'confirmed' flag is hardcoded True.
+    r = _result()
+    r["mutual_agreement"] = {"confirmed": True, "sha256": "a" * 64, "mode": "local-dev"}
+    assert gr.should_send(r)[0] is False
 
 
 def test_gate_counted_two_peer_requires_agreeing_confirmations():
     r = _result()
-    r["mutual_agreement"]["mode"] = "counted-two-peer"
-    r["mutual_agreement"]["confirmations"] = {
-        "p": {"group": "p", "final_sha256": "h"},
-        "t": {"group": "t", "final_sha256": "h"},
-    }
     assert gr.should_send(r)[0] is True
     r["mutual_agreement"]["confirmations"]["t"]["final_sha256"] = "other"
     assert gr.should_send(r)[0] is False  # hashes disagree -> no send

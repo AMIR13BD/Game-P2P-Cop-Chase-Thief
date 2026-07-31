@@ -37,14 +37,15 @@ def should_send(result: dict) -> tuple[bool, str]:
         if sg.get("result") == "technical" or sg.get("audit", {}).get("tampered"):
             return False, "a technical or tampered sub-game is present"
     ma = result.get("mutual_agreement", {})
-    if not ma.get("confirmed"):
-        return False, "final mutual agreement not confirmed"
-    if ma.get("mode") == "counted-two-peer":
-        confs = ma.get("confirmations", {})
-        groups = {c.get("group") for c in confs.values() if isinstance(c, dict)}
-        hashes = {c.get("final_sha256") for c in confs.values() if isinstance(c, dict)}
-        if len(confs) < 2 or len(groups) < 2 or len(hashes) != 1:
-            return False, "two-peer confirmations missing or disagree"
+    # Only a REAL counted two-peer match may be reported; self-play/dev artifacts
+    # (mode 'local-dev', whose 'confirmed' flag is always True) are never sendable.
+    if ma.get("mode") != "counted-two-peer":
+        return False, "not a counted two-peer match (self-play/dev results are never sent)"
+    confs = ma.get("confirmations", {})
+    groups = {c.get("group") for c in confs.values() if isinstance(c, dict)}
+    hashes = {c.get("final_sha256") for c in confs.values() if isinstance(c, dict)}
+    if len(confs) < 2 or len(groups) < 2 or len(hashes) != 1:
+        return False, "two-peer confirmations missing or disagree"
     return True, "ok"
 
 
