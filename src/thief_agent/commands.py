@@ -8,7 +8,7 @@ import argparse
 from .constants import Role
 from .exceptions import ConfigError
 from .sdk.sdk import AgentSDK
-from .security.signer import DevTestSigner
+from .security.signer import signer_from_env
 from .shared.config_validate import validate
 from .shared.defaults import DEFAULT_GAME_CONFIG
 from .shared.gitinfo import current_commit
@@ -18,7 +18,7 @@ GROUP_NAME = "amireman-thief"
 
 
 def _sdk() -> AgentSDK:
-    return AgentSDK(NATURAL_ROLE, GROUP_NAME, DevTestSigner(), current_commit())
+    return AgentSDK(NATURAL_ROLE, GROUP_NAME, signer_from_env(GROUP_NAME), current_commit())
 
 
 def cmd_series(args: argparse.Namespace) -> int:

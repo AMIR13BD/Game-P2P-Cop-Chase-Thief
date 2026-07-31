@@ -1,7 +1,7 @@
 """Launch a peer's real FastMCP HTTP server as an independent process."""
 
 from ..security.auth import AuthRegistry
-from ..security.signer import DevTestSigner
+from ..security.signer import signer_from_env
 from ..shared.config_validate import validate
 from ..shared.defaults import DEFAULT_GAME_CONFIG
 from ..shared.gitinfo import current_commit
@@ -30,7 +30,7 @@ def run(  # pragma: no cover - launches a blocking live HTTP server
         flat_cfg=validate(DEFAULT_GAME_CONFIG),
         auth=AuthRegistry(set(valid), set(revoked)),
         github_commit=current_commit(default="0" * 40),
-        signer=DevTestSigner(),
+        signer=signer_from_env(group),
         seed=seed,
     )
     build_server(pc).run(transport="http", host=host, port=port, show_banner=False)

@@ -73,13 +73,21 @@ def verify_match(dirpath: str, gid: str, signer) -> dict:
     try:
         decl = _load(os.path.join(dirpath, ids.declaration_name(gid)))
         result = _load(os.path.join(dirpath, ids.result_name(gid)))
-        commits, by_group = [], {}
+        counted = result.get("mutual_agreement", {}).get("mode") == "counted-two-peer"
+        commits, by_group, valid_sigs = [], {}, 0
         for grp in decl["groups"].values():
             ident = {k: v for k, v in grp.items() if k != "signature"}
-            if not signer.verify(ident, grp.get("signature", "")):
+            ok = signer.verify(ident, grp.get("signature", ""))
+            valid_sigs += 1 if ok else 0
+            # In a counted match peers hold DISTINCT keys, so this single signer can only
+            # verify its own side; cross-peer signature verification is the official
+            # (asymmetric/both-key) audit's job -- see validate_counted_evidence.
+            if not ok and not counted:
                 fails.append(f"declaration signature invalid for {grp.get('group_id')}")
             commits.append(grp.get("github_commit"))
             by_group[grp["group_id"]] = grp.get("github_commit")
+        if counted and valid_sigs < 1:
+            fails.append("no declaration signature verifies under the local key")
         if None in commits or len(set(commits)) < 2:
             fails.append("declaration Git commits are not distinct per peer")
         for entry in result["sub_games"]:

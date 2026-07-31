@@ -3,6 +3,7 @@ official course-provided key integration is intentionally BLOCKED-EXTERNAL."""
 
 import hashlib
 import hmac
+import os
 from typing import Protocol
 
 from ..domain.crypto import canonical_json
@@ -42,6 +43,14 @@ def peer_signer(group: str, key: bytes | None = None) -> DevTestSigner:
     """A per-peer dev signer. `key` is that peer's OWN secret (falls back to the shared
     dev key only for local single-process convenience/back-compat)."""
     return DevTestSigner(name=group, key=key if key is not None else DEV_TEST_KEY)
+
+
+def signer_from_env(group: str) -> DevTestSigner:
+    """Per-peer signer whose secret key comes from PT_SIGNER_KEY (hex) in the ignored
+    environment (never committed/logged); falls back to the shared dev key when unset."""
+    hexkey = os.environ.get("PT_SIGNER_KEY")
+    key = bytes.fromhex(hexkey) if hexkey else DEV_TEST_KEY
+    return DevTestSigner(name=group, key=key)
 
 
 class OfficialSigner:

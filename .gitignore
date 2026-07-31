@@ -16,3 +16,8 @@ token.json
 logs/
 artifacts/
 artifacts_net/
+
+# Local counted-match rehearsal outputs (per-run evidence; not committed)
+rehearsal_evidence/
+rehearsal_tampered/
+rehearsal_down/
