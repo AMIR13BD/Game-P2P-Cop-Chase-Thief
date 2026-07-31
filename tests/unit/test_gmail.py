@@ -1,6 +1,5 @@
-"""P23 Gmail reporting: gating (six sub-games + confirmed audit), MIME attachment,
-idempotent send via a mocked service, dry-run/draft send nothing, and clear failures
-when OAuth files are absent. No real credentials; no real message id claimed."""
+"""P23 Gmail reporting: gating (six sub-games + counted audit), MIME attachment,
+idempotent mocked send, dry-run/draft sends nothing, clear failures, no real creds."""
 
 import base64
 import json
