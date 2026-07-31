@@ -30,7 +30,12 @@ uv run python -m thief_agent artifacts --out artifacts  # emit + verify the 4 ar
 uv run python -m thief_agent serve --port 8002 --token dev-token           # run as peer
 uv run python -m thief_agent netplay --opponent-url http://host:8002/mcp \
     --token dev-token --counted                          # drive a networked series
+uv run python -m thief_agent tournament --seeds 8        # held-out champion selection
+uv run python -m thief_agent replay --dir artifacts_net --game-id <gid>    # P20 replay viewer
+uv run python -m thief_agent view                        # P21 local-truth GUI (headless)
+uv run python -m thief_agent gmail --action dryrun --dir artifacts_net --game-id <gid>
 ```
+Full command/operations reference: [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
 ### Programmatic use (SDK)
 `AgentSDK` is the single entry point; external consumers never import internal modules:
@@ -78,6 +83,16 @@ Sibling repository (Police): independent repo; cross-link added at submission.
 Legal moves are exactly **N, S, E, W, STAY**; diagonals are always rejected and malformed
 move config fails closed. Every turn is sealed with `SHA256(canonical_json(payload)|nonce)`
 and re-verified by a mutual audit; any payload/nonce/commit change is detected.
+
+## Documentation
+- [Architecture & diagrams](docs/ARCHITECTURE.md) (C4, module, deployment, protocol +
+  counted-match sequences)
+- [Security & threat model](docs/THREAT-MODEL.md)
+- [Operations](docs/OPERATIONS.md) — launch, replay, GUI, Gmail, tunnels, recovery
+- [Gmail OAuth setup](docs/GMAIL-OAUTH.md) (external) · [Testing & coverage](docs/TESTING.md)
+- [Tournament methodology & results](docs/TOURNAMENT.md) · champions: `docs/tournament/champions.json`
+- [Per-mechanism PRDs](docs/MECHANISMS.md) · [SDK/API](docs/API.md) · [Prompt log](docs/PROMPTS.md)
+- [Submission checklist & external evidence index](docs/SUBMISSION-CHECKLIST.md)
 
 ## Contributing
 - Work on a feature branch; never initialise git in the parent directory.
