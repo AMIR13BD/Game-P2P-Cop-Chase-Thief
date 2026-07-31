@@ -15,7 +15,7 @@ def make_terms(grid: int | None = None) -> dict:
     return terms
 
 
-def run(
+def run(  # pragma: no cover - launches a blocking live HTTP server
     host: str,
     port: int,
     group: str,

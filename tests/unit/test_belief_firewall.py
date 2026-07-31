@@ -8,17 +8,17 @@ from thief_agent.strategy.rng import make_rng
 
 
 def _obs(**kw):
-    base = dict(
-        role="police",
-        self_pos=(0, 0),
-        board_size=7,
-        barriers=frozenset(),
-        scent={},
-        last_hint="",
-        step=1,
-        max_barriers=14,
-        barriers_used=0,
-    )
+    base = {
+        "role": "police",
+        "self_pos": (0, 0),
+        "board_size": 7,
+        "barriers": frozenset(),
+        "scent": {},
+        "last_hint": "",
+        "step": 1,
+        "max_barriers": 14,
+        "barriers_used": 0,
+    }
     base.update(kw)
     return Observation(**base)
 

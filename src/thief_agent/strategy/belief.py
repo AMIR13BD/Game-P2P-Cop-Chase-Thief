@@ -8,7 +8,7 @@ class BeliefMap:
         self.board = board
         cells = [c for c in board.all_cells() if c not in board.barriers]
         p = 1.0 / len(cells) if cells else 0.0
-        self.dist: dict[Cell, float] = {c: p for c in cells}
+        self.dist: dict[Cell, float] = dict.fromkeys(cells, p)
 
     def update(self, scent: dict[Cell, float]) -> None:
         """Weight cells by received scent (+ small floor), zero barriers, renormalize."""
@@ -20,7 +20,7 @@ class BeliefMap:
         total = sum(weights.values())
         if total <= 0:
             n = len(weights)
-            self.dist = {c: 1.0 / n for c in weights} if n else {}
+            self.dist = dict.fromkeys(weights, 1.0 / n) if n else {}
             return
         self.dist = {c: w / total for c, w in weights.items()}
 

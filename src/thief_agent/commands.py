@@ -1,10 +1,13 @@
-"""CLI command handlers (kept separate so cli.py stays within the line limit)."""
+"""CLI command handlers (kept separate so cli.py stays within the line limit).
+
+Every business operation is invoked through the AgentSDK facade; handlers only
+parse arguments, build the shared config, and format output."""
 
 import argparse
 
 from .constants import Role
 from .exceptions import ConfigError
-from .sdk.series import run_series
+from .sdk.sdk import AgentSDK
 from .security.signer import DevTestSigner
 from .shared.config_validate import validate
 from .shared.defaults import DEFAULT_GAME_CONFIG
@@ -14,20 +17,17 @@ NATURAL_ROLE = Role.THIEF
 GROUP_NAME = "amireman-thief"
 
 
+def _sdk() -> AgentSDK:
+    return AgentSDK(NATURAL_ROLE, GROUP_NAME, DevTestSigner(), current_commit())
+
+
 def cmd_series(args: argparse.Namespace) -> int:
     try:
         cfg = validate(DEFAULT_GAME_CONFIG)
     except ConfigError as exc:
         print(f"technical-loss (config): {exc}")
         return 0
-    res = run_series(
-        cfg,
-        NATURAL_ROLE,
-        GROUP_NAME,
-        DevTestSigner(),
-        seed=args.seed,
-        github_commit=current_commit(),
-    )
+    res = _sdk().local_series(cfg, seed=args.seed)
     outs = [s["outcome"] for s in res["sub_games"]]
     print(f"role_sequence={res['role_sequence']}")
     print(f"outcomes={outs}")
@@ -38,37 +38,12 @@ def cmd_series(args: argparse.Namespace) -> int:
 
 
 def cmd_artifacts(args: argparse.Namespace) -> int:
-    from .report.emit import emit_series
-    from .report.verify import verify_series
-
-    cfg = validate(DEFAULT_GAME_CONFIG)
-    gid = args.game_id
-    series = run_series(
-        cfg,
-        NATURAL_ROLE,
-        GROUP_NAME,
-        DevTestSigner(),
-        seed=args.seed,
-        github_commit=current_commit(),
-    )
-    repos = {
-        GROUP_NAME: {"cop": "local", "thief": "local"},
-        args.opponent: {"cop": "local", "thief": "local"},
-    }
-    emit_series(
-        args.out,
-        gid,
-        {**DEFAULT_GAME_CONFIG, "agreed_between": [GROUP_NAME, args.opponent]},
-        GROUP_NAME,
-        args.opponent,
-        series,
-        current_commit(),
-        repos,
-        DevTestSigner(),
-    )
-    v = verify_series(args.out, gid, DevTestSigner())
+    sdk = _sdk()
+    series = sdk.local_series(validate(DEFAULT_GAME_CONFIG), seed=args.seed)
+    v = sdk.emit_and_verify(args.out, args.game_id, args.opponent, series, DEFAULT_GAME_CONFIG)
     print(
-        f"artifacts_dir={args.out} game_id={gid} audit_passed={v['passed']} failures={v['failures']}"
+        f"artifacts_dir={args.out} game_id={args.game_id} "
+        f"audit_passed={v['passed']} failures={v['failures']}"
     )
     return 0 if v["passed"] else 1
 
@@ -85,53 +60,30 @@ def cmd_serve(args: argparse.Namespace) -> int:
 def cmd_netplay(args: argparse.Namespace) -> int:
     import anyio
 
-    from .peer.net_runtime import run_networked
-    from .report.emit import emit_series
-    from .report.verify import verify_match, verify_series
-
+    sdk = _sdk()
     cfg = validate(DEFAULT_GAME_CONFIG)
     series = anyio.run(
-        run_networked,
-        args.opponent_url,
-        args.token,
-        cfg,
-        NATURAL_ROLE,
-        GROUP_NAME,
-        current_commit(),
-        DevTestSigner(),
-        args.seed,
-        DEFAULT_GAME_CONFIG,
+        sdk.networked_series, args.opponent_url, args.token, cfg, args.seed, DEFAULT_GAME_CONFIG
     )
-    repos = {
-        GROUP_NAME: {"cop": "local", "thief": "local"},
-        args.opponent: {"cop": "local", "thief": "local"},
-    }
-    emit_series(
+    v = sdk.emit_and_verify(
         args.out,
         args.game_id,
-        {**DEFAULT_GAME_CONFIG, "agreed_between": [GROUP_NAME, args.opponent]},
-        GROUP_NAME,
         args.opponent,
         series,
-        current_commit(),
-        repos,
-        DevTestSigner(),
+        DEFAULT_GAME_CONFIG,
         peer_commit=series.get("peer_commit"),
         peer_ident=series.get("peer_ident"),
     )
-    v = verify_series(args.out, args.game_id, DevTestSigner())
     print(f"role_sequence={series['role_sequence']}")
     print(f"outcomes={[s['outcome'] for s in series['sub_games']]}")
     print(f"audit_passed={v['passed']} failures={v['failures']}")
     if getattr(args, "counted", False):
-        m = verify_match(args.out, args.game_id, DevTestSigner())
+        m = sdk.verify_match(args.out, args.game_id)
         print(f"match_audit_passed={m['passed']} failures={m['failures']}")
         return 0 if m["passed"] else 1
     return 0 if v["passed"] else 1
 
 
 def cmd_simulate(args: argparse.Namespace) -> int:
-    from .sim.batch import run_batch
-
-    print(run_batch(validate(DEFAULT_GAME_CONFIG), min_turns=args.turns))
+    print(_sdk().simulate(validate(DEFAULT_GAME_CONFIG), turns=args.turns))
     return 0
