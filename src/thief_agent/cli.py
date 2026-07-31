@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     np.add_argument("--game-id", dest="game_id", default="amireman-police-vs-opponent")
     np.add_argument("--opponent", default="opponent")
     np.add_argument("--seed", type=int, default=1234)
+    np.add_argument("--counted", action="store_true", help="enforce strict cross-repo match audit")
     np.set_defaults(func=commands.cmd_netplay)
 
     m = sub.add_parser("simulate", help="run a deterministic headless batch")

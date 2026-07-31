@@ -37,13 +37,17 @@ async def run_networked(
     wd_th = cfg.get("watchdog_timeout_sec", 60)
     transport = StreamableHttpTransport(url, headers={"Authorization": f"Bearer {token}"})
     subs, role_seq, s_tot, o_tot = [], [], 0, 0
+    peer_commit = None
+    peer_ident = None
     try:
         async with Client(transport) as client:
             rc = ReliableCaller(
                 make_send(client), timeout_s=to, retries=tr, backoff_s=bo, session_id=f"{group}-net"
             )
             if terms is not None:
-                await rc.call({"tool": "hello", "args": local_hello(group, terms)})
+                he = await rc.call({"tool": "hello", "args": local_hello(group, terms)})
+                peer_commit = he.get("github_commit")
+                peer_ident = he.get("ident")
                 neg = await rc.call(
                     {"tool": "negotiate", "args": {"config_sha256": config_sha256(terms)}}
                 )
@@ -78,5 +82,7 @@ async def run_networked(
         "self_total": s_tot,
         "opp_total": o_tot,
         "series_tie": tie,
+        "peer_commit": peer_commit,
+        "peer_ident": peer_ident,
         "winner": "tie" if tie else ("self" if s_tot > o_tot else "opp"),
     }

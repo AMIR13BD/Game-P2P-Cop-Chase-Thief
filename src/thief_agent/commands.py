@@ -87,7 +87,7 @@ def cmd_netplay(args: argparse.Namespace) -> int:
 
     from .peer.net_runtime import run_networked
     from .report.emit import emit_series
-    from .report.verify import verify_series
+    from .report.verify import verify_match, verify_series
 
     cfg = validate(DEFAULT_GAME_CONFIG)
     series = anyio.run(
@@ -116,11 +116,17 @@ def cmd_netplay(args: argparse.Namespace) -> int:
         current_commit(),
         repos,
         DevTestSigner(),
+        peer_commit=series.get("peer_commit"),
+        peer_ident=series.get("peer_ident"),
     )
     v = verify_series(args.out, args.game_id, DevTestSigner())
     print(f"role_sequence={series['role_sequence']}")
     print(f"outcomes={[s['outcome'] for s in series['sub_games']]}")
     print(f"audit_passed={v['passed']} failures={v['failures']}")
+    if getattr(args, "counted", False):
+        m = verify_match(args.out, args.game_id, DevTestSigner())
+        print(f"match_audit_passed={m['passed']} failures={m['failures']}")
+        return 0 if m["passed"] else 1
     return 0 if v["passed"] else 1
 
 

@@ -4,6 +4,7 @@ import hashlib
 
 from ..domain.crypto import canonical_json
 from ..shared.config_hash import config_sha256
+from ..shared.sysinfo import system_spec
 from . import ids
 
 TERMS = (
@@ -73,3 +74,18 @@ def build_log(gid: str, nn: int, summary: dict, records: list) -> dict:
         "summary": summary,
         "records": records,
     }
+
+
+def group_ident(group: str, repos: dict, signer, commit: str) -> dict:
+    """Per-group Step-0 declaration identity, signed over all fields (incl commit)."""
+    base = {
+        "group_id": group,
+        "group_name": group,
+        "members": [],
+        "github_commit": commit,
+        "repos": repos.get(group, {"cop": "local", "thief": "local"}),
+        "mcp_servers": {"cop": "", "thief": ""},
+        "llm_model": "template",
+        "hardware_spec": system_spec(),
+    }
+    return {**base, "signature": signer.sign(base)}

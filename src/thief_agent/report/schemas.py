@@ -9,6 +9,7 @@ GROUP_FIELDS = (
     "group_id",
     "group_name",
     "members",
+    "github_commit",
     "repos",
     "mcp_servers",
     "llm_model",
