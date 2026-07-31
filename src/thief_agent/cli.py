@@ -54,6 +54,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     vw = sub.add_parser("view", help="render the local-truth board + belief heatmap (headless GUI)")
     vw.set_defaults(func=commands.cmd_view)
+
+    gm = sub.add_parser(
+        "gmail", help="Gmail report: bootstrap|validate|dryrun|send (draft never sends)"
+    )
+    gm.add_argument(
+        "--action", choices=["bootstrap", "validate", "dryrun", "send"], default="dryrun"
+    )
+    gm.add_argument("--dir", default="artifacts_net")
+    gm.add_argument("--game-id", dest="game_id", default="amireman-police-vs-opponent")
+    gm.add_argument("--recipient", default=None)
+    gm.add_argument("--email-mode", dest="email_mode", default=None)
+    gm.set_defaults(func=commands.cmd_gmail)
     return p
 
 

@@ -1,6 +1,5 @@
-"""Real FastMCP peer server. Header bearer auth + revocation, version/schema and
-config-hash agreement, malformed-message rejection, concurrency/queue DoS guard,
-request-correlation echo, server-side idempotency, and a responder match session."""
+"""Real FastMCP peer server: bearer auth+revocation, version/schema/config-hash
+agreement, DoS guard, idempotency, match session, and the P22 confirmation tool."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -11,6 +10,7 @@ from fastmcp.server.dependencies import get_http_headers
 from ..peer.handshake import agree_config, check_compatibility, local_hello
 from ..peer.net_engine import PeerHalf
 from ..report.artifacts import group_ident
+from ..report.confirm import responder_confirmation
 from ..security.auth import AuthRegistry, bearer_from_header
 from ..shared.gatekeeper import Gatekeeper
 from ..strategy.production import make_gameplay_brain
@@ -140,5 +140,11 @@ def build_server(pc: PeerConfig) -> FastMCP:
             payload,
             {"records": half.records if half else [], "captured": session.get("captured", False)},
         )
+
+    @mcp.tool
+    def confirm(payload: dict) -> dict:
+        """P22 two-peer final confirmation signed with THIS peer's own key."""
+        _auth()
+        return _echo(payload, responder_confirmation(pc.group, payload, pc.signer))
 
     return mcp

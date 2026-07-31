@@ -7,6 +7,14 @@ dependencies = [
     "fastmcp==3.4.5",
 ]
 
+# Real Gmail sending (BLOCKED-EXTERNAL: needs credentials.json + OAuth). Install with
+# `uv sync --extra gmail`. The core install and all tests run without these.
+[project.optional-dependencies]
+gmail = [
+    "google-api-python-client>=2",
+    "google-auth-oauthlib>=1",
+]
+
 [dependency-groups]
 dev = [
     "jsonschema>=4.26.0",

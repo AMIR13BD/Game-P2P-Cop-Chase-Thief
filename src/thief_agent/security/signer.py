@@ -20,16 +20,28 @@ class Signer(Protocol):
 
 
 class DevTestSigner:
-    """Development/test signer. Signatures are explicitly labelled 'devtest:'."""
+    """Development/test signer. Signatures are labelled 'devtest:'.
 
-    name = "dev-test"
+    Each instance may carry a distinct per-peer secret key so two peers produce
+    independently-verifiable confirmations: a process holding only its own key cannot
+    forge the other peer's signature (which is verified under the peer's key)."""
+
+    def __init__(self, name: str = "dev-test", key: bytes = DEV_TEST_KEY) -> None:
+        self.name = name
+        self._key = key
 
     def sign(self, payload: dict) -> str:
-        mac = hmac.new(DEV_TEST_KEY, canonical_json(payload).encode(), hashlib.sha256)
+        mac = hmac.new(self._key, canonical_json(payload).encode(), hashlib.sha256)
         return f"devtest:{mac.hexdigest()}"
 
     def verify(self, payload: dict, signature: str) -> bool:
         return hmac.compare_digest(signature, self.sign(payload))
+
+
+def peer_signer(group: str, key: bytes | None = None) -> DevTestSigner:
+    """A per-peer dev signer. `key` is that peer's OWN secret (falls back to the shared
+    dev key only for local single-process convenience/back-compat)."""
+    return DevTestSigner(name=group, key=key if key is not None else DEV_TEST_KEY)
 
 
 class OfficialSigner:

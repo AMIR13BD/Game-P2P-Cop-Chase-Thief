@@ -9,9 +9,11 @@ from fastmcp.client.transports import StreamableHttpTransport
 
 from ..exceptions import ConfigError, ExhaustedRetriesError, ProtocolError
 from ..infra.reliability import ReliableCaller
+from ..infra.tunnel import validate_public_endpoint
 from ..peer.handshake import local_hello
 from ..peer.net_driver import make_send, play_subgame, role_for, score_row, technical_row
 from ..peer.watchdog import Watchdog
+from ..report.confirm import confirmation_summary, final_hash, make_confirmation
 from ..shared.config_hash import config_sha256
 from ..strategy.profiling import ProfileStore
 
@@ -32,6 +34,7 @@ async def run_networked(
     retries=None,
     backoff_s=None,
 ):
+    validate_public_endpoint(url)  # fail closed on malformed / non-TLS public endpoint
     to = timeout_s if timeout_s is not None else cfg.get("response_timeout_sec", 30)
     tr = retries if retries is not None else cfg.get("max_retries", 3)
     bo = backoff_s if backoff_s is not None else cfg.get("retry_backoff_sec", 5)
@@ -40,6 +43,7 @@ async def run_networked(
     subs, role_seq, s_tot, o_tot = [], [], 0, 0
     peer_commit = None
     peer_ident = None
+    confirmations = None
     store = ProfileStore()  # one profile for this single-opponent series
     opp_id = "peer"
     try:
@@ -82,6 +86,9 @@ async def run_networked(
                 s_tot += self_s
                 o_tot += opp_s
                 subs.append(row)
+            confirmations = await _exchange_confirmation(
+                rc, subs, s_tot, o_tot, group, opp_id, signer
+            )
     except (ExhaustedRetriesError, ProtocolError, ConnectionError, httpx.HTTPError, OSError):
         pass  # connect-level failure -> remaining sub-games filled technical below
     except RuntimeError as exc:
@@ -100,5 +107,24 @@ async def run_networked(
         "series_tie": tie,
         "peer_commit": peer_commit,
         "peer_ident": peer_ident,
+        "confirmations": confirmations,
         "winner": "tie" if tie else ("self" if s_tot > o_tot else "opp"),
     }
+
+
+async def _exchange_confirmation(rc, subs, s_tot, o_tot, group, opp_id, signer):
+    """P22: build the role-symmetric final, obtain the peer's own signed confirmation,
+    and pair it with ours. Hash disagreement (or a missing peer confirmation) fails
+    closed to None so no false mutual agreement is recorded."""
+    series = {"sub_games": subs, "self_total": s_tot, "opp_total": o_tot}
+    final = confirmation_summary(series, group, opp_id)
+    fhash = final_hash(final)
+    self_conf = make_confirmation(group, fhash, signer)
+    try:
+        resp = await rc.call({"tool": "confirm", "args": {"final": final}})
+    except (ExhaustedRetriesError, ProtocolError):
+        return None
+    peer_conf = resp.get("confirmation") if isinstance(resp, dict) else None
+    if not peer_conf or peer_conf.get("final_sha256") != fhash:
+        return None  # peer disagreed or sent nothing -> no agreement
+    return {group: self_conf, peer_conf.get("group", opp_id): peer_conf}

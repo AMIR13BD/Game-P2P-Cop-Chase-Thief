@@ -80,10 +80,19 @@ def emit_series(
         )
     result = build_result(gid, groups, rows, gc, repos)
     h = result["mutual_agreement"]["sha256"]
-    result["mutual_agreement"]["signatures"] = {
-        self_group: signer.sign({"final_sha256": h}),
-        opp_group: signer.sign({"final_sha256": h}),
-    }
+    confs = series.get("confirmations")
+    if confs:  # P22: two real per-peer confirmations exchanged over the protocol
+        result["mutual_agreement"]["mode"] = "counted-two-peer"
+        result["mutual_agreement"]["confirmations"] = confs
+        result["mutual_agreement"]["signatures"] = {
+            g: c.get("signature", "") for g, c in confs.items()
+        }
+    else:  # local single-process artifact (dev/self-play): not a counted agreement
+        result["mutual_agreement"]["mode"] = "local-dev"
+        result["mutual_agreement"]["signatures"] = {
+            self_group: signer.sign({"final_sha256": h}),
+            opp_group: signer.sign({"final_sha256": h}),
+        }
     paths["result"] = os.path.join(out_dir, ids.result_name(gid))
     _write(paths["result"], "result", result)
     return {"paths": paths, "result": result}

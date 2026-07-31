@@ -88,11 +88,22 @@ def verify_match(dirpath: str, gid: str, signer) -> dict:
                     fails.append(
                         f"g{entry['sub_game_number']}: github_commit not bound to declaration"
                     )
-        h = result["mutual_agreement"]["sha256"]
-        sigs = result["mutual_agreement"].get("signatures", {})
-        valid = {g for g, s in sigs.items() if signer.verify({"final_sha256": h}, s)}
-        if len(valid) < 2:
-            fails.append("mutual agreement lacks two valid signed confirmations")
+        ma = result["mutual_agreement"]
+        h = ma["sha256"]
+        if ma.get("mode") == "counted-two-peer":
+            # Two real per-peer confirmations; per-peer signature authenticity is checked
+            # with each peer's own key (confirm.verify_mutual) in the rehearsal / official
+            # audit. Here we assert the structural agreement: two distinct peers, one hash.
+            confs = ma.get("confirmations", {})
+            groups_c = {c.get("group") for c in confs.values() if isinstance(c, dict)}
+            hashes = {c.get("final_sha256") for c in confs.values() if isinstance(c, dict)}
+            if len(confs) < 2 or len(groups_c) < 2 or len(hashes) != 1:
+                fails.append("counted agreement needs two distinct peer confirmations on one hash")
+        else:
+            sigs = ma.get("signatures", {})
+            valid = {g for g, s in sigs.items() if signer.verify({"final_sha256": h}, s)}
+            if len(valid) < 2:
+                fails.append("mutual agreement lacks two valid signed confirmations")
     except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         fails.append(f"{type(exc).__name__}: {exc}")
     return {"passed": not fails, "failures": fails, "game_id": gid}
