@@ -73,6 +73,11 @@ class OpponentProfile:
             "effectiveness": round(self.wins / max(self.sub_games, 1), 3),
         }
 
+    def hint_credibility(self) -> float:
+        """Audited hint-honesty used to gate live hint influence; neutral 0.5 until
+        any audited evidence exists, so unproven opponents never sway decisions."""
+        return self.truthful / self.turns if self.turns else 0.5
+
 
 class ProfileStore:
     """Holds one profile per opponent; guarantees a clean reset between opponents."""

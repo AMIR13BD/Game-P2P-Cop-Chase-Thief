@@ -28,7 +28,7 @@ def test_peer_half_act_emits_public_message(cfg):
     half = _half(cfg, "police")
     msg = half.act()
     assert msg["step"] == 1 and msg["sender"] == "police"
-    assert set(msg) == {"step", "sender", "commit", "hint", "scent", "claim"}
+    assert set(msg) == {"step", "sender", "commit", "hint", "scent", "claim", "barrier_placed"}
     assert len(half.records) == 2  # step-0 record + first turn
 
 
@@ -47,8 +47,12 @@ def test_role_for_alternates():
 
 
 def test_brain_selection():
-    assert net_driver.brain("police", 1).__class__.__name__ == "PoliceGreedyBrain"
-    assert net_driver.brain("thief", 1).__class__.__name__ == "ThiefDistanceBrain"
+    # Production default is the adaptive MetaController for both roles...
+    assert net_driver.brain("police", 1).__class__.__name__ == "MetaController"
+    assert net_driver.brain("thief", 1).__class__.__name__ == "MetaController"
+    # ...baseline brains remain available only on explicit request.
+    assert net_driver.brain("police", 1, baseline=True).__class__.__name__ == "PoliceGreedyBrain"
+    assert net_driver.brain("thief", 1, baseline=True).__class__.__name__ == "ThiefDistanceBrain"
 
 
 def test_technical_and_score_rows():

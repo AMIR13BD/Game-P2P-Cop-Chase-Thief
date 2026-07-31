@@ -13,9 +13,7 @@ from ..peer.net_engine import PeerHalf
 from ..report.artifacts import group_ident
 from ..security.auth import AuthRegistry, bearer_from_header
 from ..shared.gatekeeper import Gatekeeper
-from ..strategy.police_greedy import PoliceGreedyBrain
-from ..strategy.rng import make_rng
-from ..strategy.thief_distance import ThiefDistanceBrain
+from ..strategy.production import make_gameplay_brain
 from .idempotency import IdemCache
 
 REQ_MSG = ("step", "sender", "commit", "hint")
@@ -33,12 +31,8 @@ class PeerConfig:
     seed: int = 1234
 
 
-def _brain(role: str, seed: int):
-    return (
-        PoliceGreedyBrain(make_rng(seed))
-        if role == "police"
-        else ThiefDistanceBrain(make_rng(seed))
-    )
+def _brain(role: str, seed: int, horizon: int):
+    return make_gameplay_brain(role, seed, horizon=horizon)
 
 
 def _echo(payload: object, result: dict) -> dict:
@@ -107,7 +101,7 @@ def build_server(pc: PeerConfig) -> FastMCP:
         session["half"] = PeerHalf(
             role,
             pc.flat_cfg,
-            _brain(role, pc.seed + 100 + n),
+            _brain(role, pc.seed + 100 + n, pc.flat_cfg.get("survival_threshold", 35)),
             pc.group,
             pc.github_commit,
             pc.signer,

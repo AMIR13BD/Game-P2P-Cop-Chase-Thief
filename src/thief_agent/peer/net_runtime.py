@@ -13,6 +13,7 @@ from ..peer.handshake import local_hello
 from ..peer.net_driver import make_send, play_subgame, role_for, score_row, technical_row
 from ..peer.watchdog import Watchdog
 from ..shared.config_hash import config_sha256
+from ..strategy.profiling import ProfileStore
 
 SUB_GAMES = 6
 
@@ -39,6 +40,8 @@ async def run_networked(
     subs, role_seq, s_tot, o_tot = [], [], 0, 0
     peer_commit = None
     peer_ident = None
+    store = ProfileStore()  # one profile for this single-opponent series
+    opp_id = "peer"
     try:
         async with Client(transport) as client:
             rc = ReliableCaller(
@@ -48,6 +51,7 @@ async def run_networked(
                 he = await rc.call({"tool": "hello", "args": local_hello(group, terms)})
                 peer_commit = he.get("github_commit")
                 peer_ident = he.get("ident")
+                opp_id = he.get("group") or opp_id
                 neg = await rc.call(
                     {"tool": "negotiate", "args": {"config_sha256": config_sha256(terms)}}
                 )
@@ -56,12 +60,24 @@ async def run_networked(
             for n in range(1, SUB_GAMES + 1):
                 drole = role_for(natural, n).value
                 role_seq.append(drole)
+                prof = store.get(opp_id)
                 try:
                     sg = await play_subgame(
-                        rc, cfg, drole, n, group, github_commit, signer, Watchdog(wd_th)
+                        rc,
+                        cfg,
+                        drole,
+                        n,
+                        group,
+                        github_commit,
+                        signer,
+                        Watchdog(wd_th),
+                        prof.features(),
+                        prof.hint_credibility(),
                     )
                 except (ExhaustedRetriesError, ProtocolError):
                     sg = {"outcome": "technical", "records": [], "opp_records": [], "steps": 0}
+                if sg["opp_records"]:  # learn only from valid audited opponent evidence
+                    store.get(opp_id).observe_subgame(sg["opp_records"], signer, sg["outcome"])
                 row, self_s, opp_s = score_row(n, drole, sg)
                 s_tot += self_s
                 o_tot += opp_s

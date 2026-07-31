@@ -8,21 +8,16 @@ from ..constants import Role, complement
 from ..domain import scoring
 from ..exceptions import ProtocolError
 from ..peer.net_engine import PeerHalf
-from ..strategy.police_greedy import PoliceGreedyBrain
-from ..strategy.rng import make_rng
-from ..strategy.thief_distance import ThiefDistanceBrain
+from ..strategy.production import make_gameplay_brain
 
 
 def role_for(natural: Role, n: int) -> Role:
     return natural if n % 2 == 1 else complement(natural)
 
 
-def brain(role: str, seed: int):
-    return (
-        PoliceGreedyBrain(make_rng(seed))
-        if role == "police"
-        else ThiefDistanceBrain(make_rng(seed))
-    )
+def brain(role, seed, horizon=35, profile=None, credibility=0.5, baseline=False):
+    """Production adaptive brain by default; baseline only on explicit request."""
+    return make_gameplay_brain(role, seed, horizon, profile, credibility, baseline)
 
 
 def make_send(client):
@@ -44,10 +39,14 @@ def make_send(client):
     return send
 
 
-async def play_subgame(rc, cfg, drole, n, group, gc, signer, wd):
+async def play_subgame(
+    rc, cfg, drole, n, group, gc, signer, wd, profile=None, credibility=0.5, baseline=False
+):
     rrole = complement(Role(drole)).value
     await rc.call({"tool": "start_subgame", "args": {"sub_game": n, "responder_role": rrole}})
-    half = PeerHalf(drole, cfg, brain(drole, 1000 + n), group, gc, signer, n)
+    horizon = cfg.get("survival_threshold", 35)
+    dbrain = brain(drole, 1000 + n, horizon, profile, credibility, baseline)
+    half = PeerHalf(drole, cfg, dbrain, group, gc, signer, n)
     outcome = "survival"
     for step in range(1, cfg["max_moves"] + 1):
         if wd.stalled():

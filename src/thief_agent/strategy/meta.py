@@ -12,7 +12,8 @@ from .belief import BeliefMap
 from .connectivity import articulation_points
 from .firewall import enforce
 from .graph import reachable_area
-from .moves import manhattan
+from .hints import biased_target
+from .moves import manhattan, move_toward
 from .registry import make_brain, portfolio
 
 POLICE_RISK_WINDOW = 5
@@ -27,16 +28,31 @@ def _confidence(board: Board, scent: dict):
 
 
 class MetaController(BrainBase):
-    def __init__(self, role, rng, horizon=35, epsilon=0.1, profile=None) -> None:
+    def __init__(self, role, rng, horizon=35, epsilon=0.1, profile=None, credibility=0.5) -> None:
         super().__init__(rng)
         self.role = role
         self.horizon = horizon
         self.epsilon = epsilon
         self.profile = profile or {}
+        self.credibility = credibility  # audited opponent hint-honesty (0.5 = neutral)
         self.score_margin = 0
         self._brains: dict[str, BrainBase] = {}
         self._last_name = "hybrid"
         self.log: list[dict] = []
+
+    def _hint_biased(self, obs: Observation, board: Board) -> Action | None:
+        """If an AUDIT-credible directional hint shifts the belief cell, pursue it.
+
+        Gated by `biased_target` (credibility must exceed 0.5); unaudited/low-credibility
+        or non-directional hints leave the target unchanged and this returns None."""
+        if self.role != "police" or not obs.last_hint:
+            return None
+        raw = BeliefMap(board)
+        raw.update(obs.scent)
+        biased = biased_target(board, obs.scent, obs.last_hint, self.credibility)
+        if biased is None or biased == raw.argmax():
+            return None
+        return move_toward(obs, board, biased)
 
     def update_score(self, self_total: int, opp_total: int) -> None:
         self.score_margin = self_total - opp_total
@@ -85,6 +101,20 @@ class MetaController(BrainBase):
 
     def decide(self, obs: Observation) -> Action:
         board = Board(obs.board_size, set(obs.barriers))
+        biased = self._hint_biased(obs, board)
+        if biased is not None:
+            legal, substituted = enforce(biased, obs, board, self.role)
+            self._last_name = "intercept"
+            self.log.append(
+                {
+                    "step": obs.step,
+                    "strategy": "hint_biased",
+                    "reason": "credible audited hint",
+                    "explored": False,
+                    "fallback": substituted,
+                }
+            )
+            return legal
         name, reason, explored = self.select(obs)
         self._last_name = name
         legal, substituted = enforce(self._brain(name).decide(obs), obs, board, self.role)
