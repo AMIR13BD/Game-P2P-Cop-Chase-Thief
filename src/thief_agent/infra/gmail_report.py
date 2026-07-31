@@ -14,6 +14,15 @@ from email.mime.text import MIMEText
 from ..report import ids
 
 SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+MAX_REPORT_BYTES = 5_000_000  # reject an oversized/empty report attachment (fail closed)
+
+
+def validate_attachment(blob: bytes) -> None:
+    """Fail closed on an empty or oversized report attachment before sending."""
+    if not blob:
+        raise ValueError("empty report attachment")
+    if len(blob) > MAX_REPORT_BYTES:
+        raise ValueError(f"report attachment too large ({len(blob)} bytes)")
 
 
 def should_send(result: dict) -> tuple[bool, str]:

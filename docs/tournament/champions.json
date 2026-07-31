@@ -1,0 +1,104 @@
+{
+  "police": {
+    "champion": "barrier",
+    "champion_heldout": 0.583,
+    "games": 220,
+    "heldout_opponents": [
+      "corner_trap",
+      "barrier_heavy",
+      "deceptive",
+      "reference"
+    ],
+    "heldout_scores": {
+      "barrier": 0.583,
+      "greedy": 0.292,
+      "herd": 0.333,
+      "hybrid": 0.333,
+      "intercept": 0.292
+    },
+    "heldout_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "metric": "capture_rate",
+    "role": "police",
+    "tuning_opponents": [
+      "greedy",
+      "random",
+      "shortest",
+      "mobility"
+    ],
+    "tuning_scores": {
+      "barrier": 0.4,
+      "greedy": 0.1,
+      "herd": 0.1,
+      "hybrid": 0.1,
+      "intercept": 0.1
+    },
+    "tuning_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "runtime": {
+    "platform": "Linux-6.18.33.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "python": "3.13.14"
+  },
+  "thief": {
+    "champion": "endgame",
+    "champion_heldout": 0.958,
+    "games": 264,
+    "heldout_opponents": [
+      "corner_trap",
+      "barrier_heavy",
+      "deceptive",
+      "reference"
+    ],
+    "heldout_scores": {
+      "distance": 0.708,
+      "endgame": 0.958,
+      "entropy": 0.708,
+      "escape": 0.708,
+      "evade": 0.708,
+      "hybrid": 0.75
+    },
+    "heldout_seeds": [
+      100,
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "metric": "survival_rate",
+    "role": "thief",
+    "tuning_opponents": [
+      "greedy",
+      "random",
+      "shortest",
+      "mobility"
+    ],
+    "tuning_scores": {
+      "distance": 1.0,
+      "endgame": 0.95,
+      "entropy": 1.0,
+      "escape": 1.0,
+      "evade": 1.0,
+      "hybrid": 1.0
+    },
+    "tuning_seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  }
+}

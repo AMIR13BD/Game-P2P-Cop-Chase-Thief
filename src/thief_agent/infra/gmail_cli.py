@@ -52,6 +52,11 @@ def run(args) -> int:
         print(f"NOT SENDING (fail-closed): {reason}")
         return 1
     name, blob = gr.report_attachment(args.dir, args.game_id)
+    try:
+        gr.validate_attachment(blob)
+    except ValueError as exc:
+        print(f"NOT SENDING (fail-closed): {exc}")
+        return 1
     st = ga.email_settings(args.recipient, args.email_mode)
     msg = gr.build_message(
         "me", st["recipient"], _subject(args.game_id), _body(args.game_id), name, blob
