@@ -31,6 +31,28 @@ def test_tournament_subcommand_runs(capsys):
     assert "police champion=" in out and "thief champion=" in out
 
 
+def test_view_subcommand_renders(capsys):
+    rc = main(["view"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "belief heatmap" in out and ("P" in out or "state=MOVE" in out)
+
+
+def test_replay_subcommand_verifies_emitted_game(tmp_path, capsys):
+    out_dir, gid = tmp_path / "art", "gtest"
+    assert main(["artifacts", "--out", str(out_dir), "--game-id", gid, "--seed", "1"]) == 0
+    capsys.readouterr()
+    rc = main(["replay", "--dir", str(out_dir), "--game-id", gid])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "sub_game=1" in out and "VERIFIED OK" in out
+
+
+def test_replay_subcommand_no_logs(capsys, tmp_path):
+    rc = main(["replay", "--dir", str(tmp_path), "--game-id", "nope"])
+    assert rc == 0 and "no replayable logs found" in capsys.readouterr().out
+
+
 def test_artifacts_subcommand_emits_and_verifies(tmp_path, capsys):
     out_dir = tmp_path / "artifacts"
     rc = main(["artifacts", "--out", str(out_dir), "--seed", "1"])

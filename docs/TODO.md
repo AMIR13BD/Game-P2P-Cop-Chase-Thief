@@ -1328,3 +1328,24 @@ tuning capture_rate 0.125–0.375). Re-run: `uv run python -m thief_agent tourna
 
 Deferred to Day-3 (out of P12–P17 scope): replay viewer, GUI, Gmail/OAuth, tunnels,
 counted matches, final submission docs/screenshots.
+
+## Day-2 Part 3 delivery — P20 Replay Viewer + P21 GUI (2026-07-31) — DONE
+
+Text-based, headless-testable local visualization (no external GUI deps).
+
+- **P20 Replay Viewer** — DONE · `gui/replay_data.py` (reconstruct frames from AUDITED
+  records, malformed-log safe handling, `load_log`, `board_at`, post-audit truth board),
+  `gui/replay_verify.py` (per-step SHA-256 verification + config-hash check),
+  `gui/replay_controls.py` (VERIFIED OK / TAMPERED display + stepper bounds),
+  `sim/tamper_gen.py` (deliberate tampering fixtures). CLI `replay`. Covers T-0504..T-0538.
+  Tests: `tests/unit/test_replay.py`.
+- **P21 GUI** — DONE · `gui/board_view.py` (local-truth board + scent overlay),
+  `gui/heatmap.py` (belief heatmap), `gui/status_banner.py` (banner + input lock),
+  `gui/event_log.py` (bounded event log), `gui/window.py` (`local_view` +
+  hidden-opponent-position guarantee). CLI `view`. Covers T-0539..T-0566.
+  Tests: `tests/unit/test_gui.py`.
+
+The live GUI shows only the local player's truth (exactly one player marker) and cannot
+reveal the opponent's position; the replay viewer shows both trajectories from
+post-audit revealed records. Still deferred (out of scope): GUI screenshots
+(T-0567..T-0569, Day-3), Gmail/OAuth, tunnels, counted matches, final submission.

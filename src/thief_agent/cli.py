@@ -46,6 +46,14 @@ def build_parser() -> argparse.ArgumentParser:
     tn = sub.add_parser("tournament", help="deterministic held-out champion selection")
     tn.add_argument("--seeds", type=int, default=8)
     tn.set_defaults(func=commands.cmd_tournament)
+
+    rp = sub.add_parser("replay", help="replay a game's artifacts with per-step verification")
+    rp.add_argument("--dir", required=True)
+    rp.add_argument("--game-id", dest="game_id", required=True)
+    rp.set_defaults(func=commands.cmd_replay)
+
+    vw = sub.add_parser("view", help="render the local-truth board + belief heatmap (headless GUI)")
+    vw.set_defaults(func=commands.cmd_view)
     return p
 
 
