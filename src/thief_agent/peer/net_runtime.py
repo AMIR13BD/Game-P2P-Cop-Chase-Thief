@@ -1,18 +1,14 @@
-"""Driver of a distributed six-sub-game series over real FastMCP transport, routed
-through the production ReliableCaller (timeout/retry/backoff/correlation) with a
-per-sub-game watchdog. The happy path uses one MCP session; because a public tunnel can
-drop that long-lived session mid-series (the drop surfaces at the session boundary,
-outside the per-call guard), a transport failure is isolated to the current sub-game and
+"""Driver of a distributed six-sub-game series over real FastMCP transport (ReliableCaller
++ per-sub-game watchdog). A public tunnel can drop the streaming session mid-series; each
+attempt runs isolated (see net_reconnect) so a drop is charged to the current sub-game and
 the driver RECONNECTS a fresh session to finish the rest -- one recoverable interruption
-never turns every remaining game technical. Defined failures -> deterministic technical
-loss; unexpected programmer errors are NOT swallowed."""
+never turns every remaining game technical. Programmer errors are NOT swallowed."""
 
 from ..exceptions import ConfigError
 from ..infra.reliability import ReliableCaller, new_session_id
 from ..infra.tunnel import validate_public_endpoint
 from ..peer.handshake import local_hello
 from ..peer.net_driver import (
-    TRANSPORT_ERRORS,
     default_connect,
     exchange_confirmation,
     make_send,
@@ -20,8 +16,8 @@ from ..peer.net_driver import (
     role_for,
     score_row,
     technical_row,
-    transport_reason,
 )
+from ..peer.net_reconnect import is_recoverable, recoverable_reason, run_isolated
 from ..peer.watchdog import Watchdog
 from ..shared.config_hash import config_sha256
 from ..strategy.profiling import ProfileStore
@@ -38,6 +34,7 @@ class _Series:
         self.peer_commit = self.peer_ident = self.confirmations = None
         self.opp_id = "peer"
         self.n = 1  # next sub-game to play
+        self.began = None  # sub-game this attempt actually started (vs. failing at connect)
         self.handshook = terms is None
 
 
@@ -63,10 +60,13 @@ async def run_networked(
     connect = connect or default_connect
     store = ProfileStore()  # one profile for this single-opponent series
     s = _Series(terms)
+    last_reason = "series incomplete"
     attempts = 0
-    while s.n <= SUB_GAMES and attempts < 2 * SUB_GAMES:
+    while s.n <= SUB_GAMES and attempts < 3 * SUB_GAMES:
         attempts += 1
-        try:
+        s.began = None
+
+        async def _attempt():
             async with connect(url, token) as client:
                 rc = ReliableCaller(
                     make_send(client),
@@ -76,22 +76,24 @@ async def run_networked(
                     session_id=new_session_id(f"{group}-net"),
                 )
                 await _run_session(rc, cfg, natural, group, github_commit, signer, terms, store, s)
-        except TRANSPORT_ERRORS as exc:  # session dropped: lose THIS sub-game, reconnect for rest
-            if s.handshook and s.n <= SUB_GAMES:
-                drole = role_for(natural, s.n).value
-                if len(s.role_seq) < s.n:
-                    s.role_seq.append(drole)
-                s.subs.append(technical_row(s.n, drole, transport_reason(exc)))
-                s.n += 1
-        except RuntimeError as exc:
-            if "connect" not in str(exc).lower():
-                raise  # never swallow unexpected programmer errors
-            break
+
+        exc = await run_isolated(_attempt)  # isolated so a crashed session can't block reconnect
+        if exc is None:
+            continue  # session finished cleanly (all games + confirmation) -> loop exits
+        if not is_recoverable(exc):
+            raise exc  # never swallow an unexpected programmer error
+        last_reason = recoverable_reason(exc)
+        if s.handshook and s.began == s.n and s.n <= SUB_GAMES:
+            drole = role_for(natural, s.n).value  # THIS sub-game was reached and failed
+            if len(s.role_seq) < s.n:
+                s.role_seq.append(drole)
+            s.subs.append(technical_row(s.n, drole, last_reason))
+            s.n += 1  # else: connect/handshake-level drop -> reconnect without losing a game
     while len(s.role_seq) < SUB_GAMES:
         s.role_seq.append(role_for(natural, len(s.role_seq) + 1).value)
     while len(s.subs) < SUB_GAMES:
         i = len(s.subs)
-        s.subs.append(technical_row(i + 1, s.role_seq[i], "series incomplete"))
+        s.subs.append(technical_row(i + 1, s.role_seq[i], last_reason))
     tie = s.s_tot == s.o_tot
     return {
         "sub_games": s.subs,
@@ -122,6 +124,7 @@ async def _run_session(rc, cfg, natural, group, github_commit, signer, terms, st
         n, drole = s.n, role_for(natural, s.n).value
         if len(s.role_seq) < n:
             s.role_seq.append(drole)
+        s.began = n  # we reached this sub-game; a drop here is charged to it
         prof = store.get(s.opp_id)
         sg = await play_subgame(
             rc,
