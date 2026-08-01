@@ -68,7 +68,7 @@ async def play_subgame(
     }
 
 
-def technical_row(n, drole):
+def technical_row(n, drole, reason=None):
     return {
         "sub_game": n,
         "self_role": drole,
@@ -79,6 +79,7 @@ def technical_row(n, drole):
         "records": [],
         "opp_records": [],
         "trajectory": [],
+        "reason": reason,
     }
 
 
@@ -96,6 +97,7 @@ def score_row(n, drole, sg):
             "records": sg["records"],
             "opp_records": sg["opp_records"],
             "trajectory": [],
+            "reason": sg.get("reason"),
         },
         self_s,
         opp_s,

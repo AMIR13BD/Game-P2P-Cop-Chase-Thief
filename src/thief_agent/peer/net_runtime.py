@@ -44,6 +44,7 @@ async def run_networked(
     peer_commit = None
     peer_ident = None
     confirmations = None
+    fill_reason = "series incomplete"  # reason stamped on any technical fill sub-games
     store = ProfileStore()  # one profile for this single-opponent series
     opp_id = "peer"
     try:
@@ -78,8 +79,14 @@ async def run_networked(
                         prof.features(),
                         prof.hint_credibility(),
                     )
-                except (ExhaustedRetriesError, ProtocolError):
-                    sg = {"outcome": "technical", "records": [], "opp_records": [], "steps": 0}
+                except (ExhaustedRetriesError, ProtocolError) as exc:
+                    sg = {
+                        "outcome": "technical",
+                        "records": [],
+                        "opp_records": [],
+                        "steps": 0,
+                        "reason": f"{type(exc).__name__}: {exc}",
+                    }
                 if sg["opp_records"]:  # learn only from valid audited opponent evidence
                     store.get(opp_id).observe_subgame(sg["opp_records"], signer, sg["outcome"])
                 row, self_s, opp_s = score_row(n, drole, sg)
@@ -89,15 +96,16 @@ async def run_networked(
             confirmations = await _exchange_confirmation(
                 rc, subs, s_tot, o_tot, group, opp_id, signer
             )
-    except (ExhaustedRetriesError, ProtocolError, ConnectionError, httpx.HTTPError, OSError):
-        pass  # connect-level failure -> remaining sub-games filled technical below
+    except (ExhaustedRetriesError, ProtocolError, ConnectionError, httpx.HTTPError, OSError) as exc:
+        fill_reason = f"{type(exc).__name__}: {exc}"  # connect-level failure; fill technical
     except RuntimeError as exc:
         if "connect" not in str(exc).lower():
             raise  # never swallow unexpected programmer errors
+        fill_reason = f"RuntimeError: {exc}"
     while len(role_seq) < SUB_GAMES:
         role_seq.append(role_for(natural, len(role_seq) + 1).value)
     while len(subs) < SUB_GAMES:
-        subs.append(technical_row(len(subs) + 1, role_seq[len(subs)]))
+        subs.append(technical_row(len(subs) + 1, role_seq[len(subs)], fill_reason))
     tie = s_tot == o_tot
     return {
         "sub_games": subs,

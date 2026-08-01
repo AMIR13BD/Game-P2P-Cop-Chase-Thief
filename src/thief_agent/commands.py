@@ -76,6 +76,13 @@ def cmd_netplay(args: argparse.Namespace) -> int:
     )
     print(f"role_sequence={series['role_sequence']}")
     print(f"outcomes={[s['outcome'] for s in series['sub_games']]}")
+    reasons = [
+        (s["sub_game"], s["reason"])
+        for s in series["sub_games"]
+        if s["outcome"] == "technical" and s.get("reason")
+    ]
+    if reasons:
+        print(f"technical_reasons={reasons}")
     print(f"audit_passed={v['passed']} failures={v['failures']}")
     if getattr(args, "counted", False):
         m = sdk.verify_match(args.out, args.game_id)
