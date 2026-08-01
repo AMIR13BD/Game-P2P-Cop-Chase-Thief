@@ -8,7 +8,7 @@ from fastmcp import Client
 from fastmcp.client.transports import StreamableHttpTransport
 
 from ..exceptions import ConfigError, ExhaustedRetriesError, ProtocolError
-from ..infra.reliability import ReliableCaller
+from ..infra.reliability import ReliableCaller, new_session_id
 from ..infra.tunnel import validate_public_endpoint
 from ..peer.handshake import local_hello
 from ..peer.net_driver import make_send, play_subgame, role_for, score_row, technical_row
@@ -50,7 +50,11 @@ async def run_networked(
     try:
         async with Client(transport) as client:
             rc = ReliableCaller(
-                make_send(client), timeout_s=to, retries=tr, backoff_s=bo, session_id=f"{group}-net"
+                make_send(client),
+                timeout_s=to,
+                retries=tr,
+                backoff_s=bo,
+                session_id=new_session_id(f"{group}-net"),
             )
             if terms is not None:
                 he = await rc.call({"tool": "hello", "args": local_hello(group, terms)})

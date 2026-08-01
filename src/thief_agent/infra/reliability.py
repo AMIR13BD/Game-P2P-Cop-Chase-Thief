@@ -2,10 +2,19 @@
 idempotency/dedup, timeout, retry+backoff, gatekeeper admission, deadline, and a
 deterministic technical-loss on exhausted/defined failures. Bounded memory."""
 
+import secrets
+
 import anyio
 
 from ..exceptions import ExhaustedRetriesError, ProtocolError, QueueFullError, RateLimitError
 from ..peer.technical import technical_result
+
+
+def new_session_id(prefix: str) -> str:
+    """A per-invocation session id. Each netplay run gets a fresh, unique id so its
+    request ids never collide with a previous run's ids in a persistent responder's
+    idempotency cache (which would otherwise be rejected as a replay)."""
+    return f"{prefix}-{secrets.token_hex(4)}"
 
 
 class ReliableCaller:

@@ -127,9 +127,9 @@ def build_server(pc: PeerConfig) -> FastMCP:
             finally:
                 gk.release()
 
-        rid = payload.get("_rid")
-        if rid:
-            return idem.get_or_run((token, rid), IdemCache.fingerprint(payload), compute)
+        rid, sid = payload.get("_rid"), payload.get("_sid")
+        if rid:  # dedup scoped by (token, session, request-id) per the IdemCache contract
+            return idem.get_or_run((token, sid, rid), IdemCache.fingerprint(payload), compute)
         return compute()
 
     @mcp.tool
