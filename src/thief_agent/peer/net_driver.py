@@ -2,13 +2,28 @@
 and score-row assembly. Kept separate so net_runtime.py stays within the line limit."""
 
 import httpx
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 from fastmcp.exceptions import ToolError
 
 from ..constants import Role, complement
 from ..domain import scoring
-from ..exceptions import ProtocolError
+from ..exceptions import ExhaustedRetriesError, ProtocolError
 from ..peer.net_engine import PeerHalf
+from ..report.confirm import confirmation_summary, final_hash, make_confirmation
 from ..strategy.production import make_gameplay_brain
+
+# transport-level failures that justify isolating a sub-game and reconnecting a session
+TRANSPORT_ERRORS = (ExhaustedRetriesError, ProtocolError, ConnectionError, httpx.HTTPError, OSError)
+
+
+def transport_reason(exc) -> str:
+    """A never-empty technical reason: many tunnel drops carry no message."""
+    return f"{type(exc).__name__}: {str(exc) or 'connection dropped (transport)'}"
+
+
+def default_connect(url, token):
+    return Client(StreamableHttpTransport(url, headers={"Authorization": f"Bearer {token}"}))
 
 
 def role_for(natural: Role, n: int) -> Role:
@@ -30,7 +45,9 @@ def make_send(client):
         except ToolError as exc:
             raise ProtocolError(str(exc)) from exc
         except (httpx.HTTPError, OSError) as exc:
-            raise ConnectionError(str(exc)) from exc
+            # many transport drops carry an empty message; keep the type name so the
+            # technical reason is never a bare "ConnectError: "
+            raise ConnectionError(str(exc) or type(exc).__name__) from exc
         if isinstance(data, dict):
             data.setdefault("request_id", req["request_id"])
             data.setdefault("session_id", req["session_id"])
@@ -102,3 +119,21 @@ def score_row(n, drole, sg):
         self_s,
         opp_s,
     )
+
+
+async def exchange_confirmation(rc, subs, s_tot, o_tot, group, opp_id, signer):
+    """P22: build the role-symmetric final, obtain the peer's own signed confirmation, and
+    pair it with ours. Hash disagreement (or a missing peer confirmation) fails closed to
+    None so no false mutual agreement is recorded."""
+    series = {"sub_games": subs, "self_total": s_tot, "opp_total": o_tot}
+    final = confirmation_summary(series, group, opp_id)
+    fhash = final_hash(final)
+    self_conf = make_confirmation(group, fhash, signer)
+    try:
+        resp = await rc.call({"tool": "confirm", "args": {"final": final}})
+    except (ExhaustedRetriesError, ProtocolError):
+        return None
+    peer_conf = resp.get("confirmation") if isinstance(resp, dict) else None
+    if not peer_conf or peer_conf.get("final_sha256") != fhash:
+        return None  # peer disagreed or sent nothing -> no agreement
+    return {group: self_conf, peer_conf.get("group", opp_id): peer_conf}
