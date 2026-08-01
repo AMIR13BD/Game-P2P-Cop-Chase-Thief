@@ -7,11 +7,41 @@ URL -- obtaining the real public URL is BLOCKED-EXTERNAL. Public counted matches
 REQUIRE https://; tokens/URLs come only from ignored env/config and are never logged."""
 
 import os
+import re
 import socket
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from ..exceptions import ConfigError
+
 LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+_HEADER_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
+
+
+def tunnel_headers(env: dict | None = None) -> dict:
+    """Optional public-tunnel HTTP headers from PT_TUNNEL_HEADERS, e.g. a provider warning
+    bypass like 'localtonet-skip-warning: true'. Format: one or more 'Name: Value' entries
+    separated by newlines or ';'. Unset/empty -> {} so default behavior is unchanged. Rejects
+    malformed entries and any attempt to set Authorization, so bearer auth is never weakened.
+    Values are provider flags (not secrets) and are never logged."""
+    raw = (env if env is not None else os.environ).get("PT_TUNNEL_HEADERS", "").strip()
+    if not raw:
+        return {}
+    headers: dict = {}
+    for entry in re.split(r"[;\n]", raw):
+        entry = entry.strip()
+        if not entry:
+            continue
+        name, sep, value = entry.partition(":")
+        name, value = name.strip(), value.strip()
+        if not sep or not _HEADER_NAME.match(name) or not value:
+            raise ConfigError(f"malformed tunnel header (expected 'Name: Value'): {entry!r}")
+        if any(ord(c) < 32 for c in value):
+            raise ConfigError("tunnel header value contains control characters")
+        if name.lower() == "authorization":
+            raise ConfigError("tunnel headers may not override Authorization")
+        headers[name] = value
+    return headers
 
 
 def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:

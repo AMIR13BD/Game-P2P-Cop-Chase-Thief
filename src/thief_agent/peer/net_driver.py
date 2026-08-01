@@ -9,6 +9,7 @@ from fastmcp.exceptions import ToolError
 from ..constants import Role, complement
 from ..domain import scoring
 from ..exceptions import ExhaustedRetriesError, ProtocolError
+from ..infra.tunnel import tunnel_headers
 from ..peer.net_engine import PeerHalf
 from ..report.confirm import confirmation_summary, final_hash, make_confirmation
 from ..strategy.production import make_gameplay_brain
@@ -23,7 +24,10 @@ def transport_reason(exc) -> str:
 
 
 def default_connect(url, token):
-    return Client(StreamableHttpTransport(url, headers={"Authorization": f"Bearer {token}"}))
+    # optional tunnel headers first; Authorization is applied last so it can never be
+    # overridden and bearer auth is always present (e.g. Localtonet warning-bypass header)
+    headers = {**tunnel_headers(), "Authorization": f"Bearer {token}"}
+    return Client(StreamableHttpTransport(url, headers=headers))
 
 
 def role_for(natural: Role, n: int) -> Role:
