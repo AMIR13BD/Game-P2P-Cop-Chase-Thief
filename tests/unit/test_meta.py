@@ -65,10 +65,22 @@ def test_controlled_exploration_bounded_and_logged():
     assert all(e["explored"] for e in mc.log)
 
 
-def test_endgame_selection_near_limit():
+def test_thief_prefers_escape_when_safe():
     mc = MetaController("thief", make_rng(2), horizon=35, epsilon=0.0)
-    name, reason, _ = mc.select(_obs("thief", step=33))
-    assert name == "endgame"
+    name, _reason, _ = mc.select(_obs("thief", step=33))  # safe open board -> distance+mobility
+    assert name == "escape"
+
+
+def test_police_prefers_barrier_when_budget_remains():
+    mc = MetaController("police", make_rng(2), horizon=35, epsilon=0.0)
+    name, _reason, _ = mc.select(_obs("police", step=3))  # target visible, barriers remain
+    assert name == "barrier"
+
+
+def test_police_falls_back_when_barriers_exhausted():
+    mc = MetaController("police", make_rng(2), horizon=35, epsilon=0.0)
+    name, _reason, _ = mc.select(_obs("police", step=3, barriers_used=14, max_barriers=14))
+    assert name in {"hybrid", "herd", "intercept"}  # no budget -> pursuit/compression
 
 
 def test_no_exploration_when_epsilon_zero():

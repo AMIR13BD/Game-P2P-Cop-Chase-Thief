@@ -13,12 +13,10 @@ from .connectivity import articulation_points
 from .firewall import enforce
 from .graph import reachable_area
 from .hints import biased_target
-from .moves import manhattan, move_toward
+from .moves import move_toward
 from .registry import make_brain, portfolio
 
 POLICE_RISK_WINDOW = 5
-THIEF_ENDGAME_WINDOW = 6
-CLOSE = 2
 
 
 def _confidence(board: Board, scent: dict):
@@ -62,31 +60,33 @@ class MetaController(BrainBase):
             self._brains[name] = make_brain(self.role, name, self.rng)
         return self._brains[name]
 
-    def _police_choice(self, obs, board, target, conf):
+    def _police_choice(self, obs, board, target):
+        # Barrier-first containment: on an open board an equal-speed pursuer cannot
+        # close the gap, so value-positive cuts that shrink the thief's reachable region
+        # dominate naive pursuit. BarrierBrain itself falls back to pursuit/capture when
+        # no worthwhile cut exists or barriers are exhausted.
+        if target is not None and obs.barriers_used < obs.max_barriers:
+            return "barrier", "barrier-first: shrink the thief's reachable region"
         if self.horizon - obs.step <= POLICE_RISK_WINDOW:
             return "hybrid", "near move limit: prioritise capture"
         if target is not None and reachable_area(board, target) > (board.size**2) // 2:
-            if obs.barriers_used < obs.max_barriers and conf > 0.15:
-                return "barrier", "open space + confident belief: cut escape route"
             return "herd", "open space: compress the thief region"
         return "intercept", "constrained space: intercept directly"
 
     def _thief_choice(self, obs, board, target):
-        if self.horizon - obs.step <= THIEF_ENDGAME_WINDOW:
-            return "endgame", "near move limit: maximise survival depth"
+        # Distance + mobility + multiple escape routes maximise survival, including vs
+        # barrier play; get off self-trap geometry first, else preserve escape routes.
         if obs.self_pos in articulation_points(board):
             return "evade", "on an articulation cell: avoid self-trap"
-        if target is not None and manhattan(obs.self_pos, target) <= CLOSE:
-            return "escape", "pursuer close: maximise distance"
         if self.profile.get("barrier_tendency", 0) > 0.2:
             return "evade", "barrier-heavy opponent: avoid seals"
-        return "entropy", "safe: preserve ambiguity"
+        return "escape", "preserve distance, mobility and escape routes"
 
     def select(self, obs: Observation):
         board = Board(obs.board_size, set(obs.barriers))
-        target, conf = _confidence(board, obs.scent)
+        target, _conf = _confidence(board, obs.scent)
         if self.role == "police":
-            name, reason = self._police_choice(obs, board, target, conf)
+            name, reason = self._police_choice(obs, board, target)
         else:
             name, reason = self._thief_choice(obs, board, target)
         explored = False
