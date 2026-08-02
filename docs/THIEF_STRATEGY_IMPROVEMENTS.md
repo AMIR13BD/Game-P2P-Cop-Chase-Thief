@@ -1,16 +1,18 @@
-# Thief strategy improvements
+# Thief strategy improvements (corrected evidence)
 
-**Change (1 file, selection-only):** `MetaController._thief_choice` now defaults to the
-`escape` strategy (maximise pursuer distance + future mobility + vertex-disjoint escape
-routes), keeps `evade` when sitting on an articulation cell or facing a barrier-heavy
-opponent, and drops the frozen `endgame`/`entropy` picks.
+**Change (selection-only, `MetaController._thief_choice`):** default to `escape`
+(distance + mobility + vertex-disjoint routes), keep `evade` on articulation cells and vs
+barrier-heavy opponents, drop the frozen `endgame`/`entropy` picks.
 
-**Why:** the frozen `endgame` brain models a *greedy* pursuer and walks into barrier seals
-(0% survival vs strong barrier Police); `entropy` randomisation is weaker. `escape`/`evade`
-are barrier-aware and survive 100% vs both baseline and the strong candidate Police.
+**Scenario-diverse evidence (600 distinct scenarios, paired):**
+survival 0.768 [0.733,0.803] -> **0.915 [0.892,0.937]**, paired Δ **+0.147 [0.117,0.178]**.
+Improves on **every** board (7/9/11/13). Vs the strong candidate Police it survives **0.833**
+(NOT 100% — the earlier claim was an artifact of one repeated scenario).
 
-**Evidence (held-out, grid 7, 500):** survival 0.942 [0.918,0.959] -> **1.000 [0.992,1.000]**
-(+5.8 pp, disjoint CIs). Per board: 0.99->1.0 (5), 0.95->1.0 (7), 0.957->1.0 (9). Also
-survives 100% vs the strong candidate Police (D). 0 technical/illegal/forced-timeout;
-p95 ≤1.2 ms. Robust across held-out Police opponents (only loses to `corner_trap`, same as
-baseline). THIEF STRATEGY: PROVEN STRONGER.
+**Known regression (rule 27, requires user approval):** vs the `corner_trap` opponent
+survival drops **0.20 -> 0.04** — escape-default (maximise distance) is herded into corners.
+Everywhere else it improves or ties (7/8 opponents). Recommended follow-up (NOT applied here,
+per "do not change strategies yet"): re-enable `evade`/anti-herding when a corner-trapping
+pattern is detected.
+
+THIEF STRATEGY: PROVEN STRONGER on the primary paired axis, with the corner_trap caveat above.

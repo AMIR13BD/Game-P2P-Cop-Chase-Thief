@@ -1,34 +1,26 @@
-# Reproduction
+# Reproduction (corrected)
 
-Baseline commits: Police `00de656`, Thief `ac8d585`. Candidate branches:
-`improve/police-strategy`, `improve/thief-strategy`. Change: `src/<agent>/strategy/meta.py`
-selection; harness `src/<agent>/sim/selfplay.py`; tests `tests/unit/test_{meta,selfplay}.py`.
+Baselines: Police `00de656`, Thief `ac8d585`. Candidates: `improve/police-strategy`,
+`improve/thief-strategy`. New: `sim/{scenarios,varied,stats}.py`, `tests/unit/test_varied.py`.
 
-## Faithfulness (frozen baseline)
-```
-git worktree add /tmp/base <BASELINE_COMMIT>
-PYTHONPATH=/tmp/base/src .venv/bin/python -c "<baseline-vs-baseline per-seed dump>"
-# compare to sim.selfplay.BaselineMeta per-seed dump -> identical
-```
-
-## Held-out benchmark (regenerates evidence/strategy_summary.json)
+## Scenario-diverse benchmark
 ```
 .venv/bin/python - <<'PY'
-from <agent>.sim.selfplay import BaselineMeta, run_matchup
+from <agent>.sim.scenarios import generate
+from <agent>.sim.varied import evaluate
+from <agent>.sim.stats import paired_diff_ci
+from <agent>.sim.selfplay import BaselineMeta
 from <agent>.strategy.meta import MetaController
-from <agent>.shared.config_validate import validate
-from <agent>.shared.defaults import DEFAULT_GAME_CONFIG
-cfg=validate(DEFAULT_GAME_CONFIG); ho=list(range(20000,20500))
-print("cand police cap", run_matchup(cfg, MetaController, BaselineMeta, ho, "police")["capture_rate"])
-print("cand thief surv", run_matchup(cfg, BaselineMeta, MetaController, ho, "thief")["survival_rate"])
+fac=lambda c,r: (lambda rng,h: c(r,rng,horizon=h,epsilon=0.0))
+CP,BP=fac(MetaController,"police"),fac(BaselineMeta,"police")
+CT,BT=fac(MetaController,"thief"),fac(BaselineMeta,"thief")
+S=generate(600, seed=12345)
+a=evaluate(S,BP,BT,"police",True); b=evaluate(S,CP,BT,"police",True)
+at=evaluate(S,BP,BT,"thief");      ct=evaluate(S,BP,CT,"thief")
+print("police", a["rate"], b["rate"], paired_diff_ci(a["ok_vector"],b["ok_vector"]))
+print("thief ", at["rate"], ct["rate"], paired_diff_ci(at["ok_vector"],ct["ok_vector"]))
 PY
 ```
-
-## Quality gates
-```
-uv run pytest --cov -q   # >=85% coverage (excl. 4 sandbox-blocked live-server tests)
-uv run ruff check . && uv run ruff format --check .
-python scripts/check_line_count.py && python scripts/secret_scan.py
-python -m <agent> artifacts --out /tmp/x --game-id g --opponent o --seed 4242  # audit_passed=True
-```
-Seeds: dev 1–300 & 500–649; held-out 20000–20499 / 20000–20299 / 21000–21299 (never tuned).
+Regenerates `evidence/strategy_summary.json` via `python <this-repo>/../gen_corrected.py`.
+Gates: `uv run pytest --cov -q`, `ruff check .`, `ruff format --check .`,
+`scripts/check_line_count.py`, `scripts/secret_scan.py`. Seeds are fixed and never tuned on.

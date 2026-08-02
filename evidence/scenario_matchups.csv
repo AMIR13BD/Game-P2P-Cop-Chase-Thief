@@ -1,0 +1,7 @@
+matchup,scenarios,unique_traj,rate,ci_lo,ci_hi,technical,illegal,timeouts,p95_ms
+A_base_police_vs_base_thief,600,568,0.2317,0.1967,0.2683,0,0,0,1.401
+B_cand_police_vs_base_thief,600,568,0.4867,0.45,0.5267,0,0,0,2.737
+A_base_thief_vs_base_police,600,568,0.7683,0.7333,0.8033,0,0,0,2.518
+C_cand_thief_vs_base_police,600,566,0.915,0.8917,0.9367,0,0,0,3.191
+D_cand_police_vs_cand_thief,600,565,0.1667,0.1367,0.1967,0,0,0,2.948
+D_cand_thief_vs_cand_police,600,565,0.8333,0.8033,0.8633,0,0,0,3.314

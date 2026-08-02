@@ -1,16 +1,14 @@
-# Ablation
+# Ablation (scenario-diverse)
 
-The two accepted changes live in `MetaController.select`. Because each matchup exercises a
-single role, matchup **B isolates the Police change** and **C isolates the Thief change**;
-there is no cross-role interaction within one game, so B and C are clean single-feature
-ablations. Held-out (grid 7, 500 games):
+Each accepted change affects one role; a matchup exercises one role, so the Police matchup
+isolates the Police change and the Thief matchup isolates the Thief change (no in-game
+cross-feature interaction). Paired held-out (600 scenarios):
 
-| Variant | Metric | Baseline | +feature | Delta |
+| Feature | Metric | Baseline | +feature | Paired Δ [CI] |
 |---|---|---|---|---|
-| +Police barrier-first (B) | capture | 0.058 | 0.568 | +0.510 |
-| +Thief escape-default (C) | survival | 0.942 | 1.000 | +0.058 |
+| Police barrier-first | capture | 0.232 | 0.487 | +0.255 [0.210,0.302] |
+| Thief escape-default | survival | 0.768 | 0.915 | +0.147 [0.117,0.178] |
 
-Per-board (300 games each): Police capture grid5 0.017->0.583, grid7 0.043->0.477,
-grid9 0.053->0.410; Thief survival grid5 0.99->1.0, grid7 0.95->1.0, grid9 0.957->1.0.
-No board subgroup regresses. Both features are minimal (selection-only) and each is
-independently beneficial; no redundant feature was added.
+Per board: both features help on every grid (see STRATEGY_EVALUATION.md). Interaction
+(cand-vs-cand): Police 0.167 capture, Thief 0.833 survival. Each feature is minimal
+(selection-only) and independently beneficial; no redundant feature added.

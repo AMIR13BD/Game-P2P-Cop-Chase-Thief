@@ -20,11 +20,17 @@
 Rich, correct primitives; deterministic; firewall + fallback; audited-only profiling;
 bounded search; barrier planner already avoids self-blocking and wasted (negative) cuts.
 
-## Weaknesses (evidence-backed)
-- **The MetaController mis-selects.** Pure `BarrierBrain` captures **60.5%** vs the baseline
-  Thief but the controller picks it rarely -> only **8%**. Pure `EscapeBrain`/`EvadeBrain`
-  survive **100%** (even vs the strong barrier Police) but the controller reaches only 94%
-  (and just 47% vs strong barrier play) because it defaults to `entropy` and switches to
+> NOTE: the percentages in this section are DEV DIAGNOSTICS on the fixed default board
+> (grid 7, cop (0,0), thief (3,3)); they motivated the changes but are NOT the acceptance
+> evidence. The scenario-diverse, paired numbers in STRATEGY_EVALUATION.md supersede them
+> (e.g. "escape survives 100%" holds only on that one fixed config — see the corner_trap
+> regression and the 0.833 cand-vs-cand survival in the corrected evaluation).
+
+## Weaknesses (evidence-backed; dev diagnostics on the fixed default board)
+- **The MetaController mis-selects.** Pure `BarrierBrain` captured **60.5%** vs the baseline
+  Thief but the controller picked it rarely -> only **8%**. Pure `EscapeBrain`/`EvadeBrain`
+  survived **100% on that fixed board** (not in general) but the controller reached only 94%
+  (and 47% vs strong barrier play) because it defaults to `entropy` and switches to
   `endgame` near the limit — `endgame` models a *greedy* pursuer and walks into barrier
   seals (0% vs barrier Police).
 - Belief `argmax` saturates at 0.9 across recent trail cells (tie-break by coordinate) —
