@@ -24,10 +24,10 @@ delayed_corner 0.15 / 0.003 / **0.38** ; seal_assist 0.69 / 0.72 / 0.77. No regr
 corner-herding ones (delayed_corner) recover strongly -> the fix is general, not corner_trap-specific.
 
 ## Opponent matrix (old cand -> new cand)
-greedy .93->.93, random .96->.938, shortest .93->.93, mobility .93->.945, corner_trap .04->.48,
-barrier_heavy .99->.99, deceptive .902->.856, reference(custom adapter) .955->.965.
-Regressions >0.02: `deceptive` (-0.046, significant) and `random` (-0.022, borderline) — the
-intrinsic cost of corner escape vs randomised pursuers; flagged for review (survival stays 86%/94%).
+greedy .93->.93, random .97->.925, shortest .93->.93, mobility .93->.945, corner_trap .04->.48,
+barrier_heavy .99->.99, deceptive .875->.835, reference(custom adapter) .955->.965.
+Regressions >0.02: `random` (-0.045) and `deceptive` (-0.040) — the intrinsic cost of corner
+escape vs randomised pursuers; flagged for review (survival stays ~93%/~84%).
 
 ## Safety
 0 technical, 0 illegal, 0 timeouts; p95 <= 3.8 ms. Police strategy byte-unchanged.

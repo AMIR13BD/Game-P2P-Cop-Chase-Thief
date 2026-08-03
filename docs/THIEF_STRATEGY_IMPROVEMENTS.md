@@ -26,9 +26,9 @@ existing `EvadeBrain` (and the frozen baseline that delegates to it) is left byt
 - 0 technical/illegal/timeouts; p95 <= 3.8 ms.
 
 **Honest trade (flagged for review):** vs the two RANDOMISED opponents the corner rule
-causes a small, statistically-significant survival dip: `deceptive` 0.902 -> 0.856
-(paired 95% CI [-0.074,-0.018]) and `random` 0.960 -> 0.938 ([-0.042,-0.004]). This is the
-INTRINSIC cost of corner escape: breaking a herd requires bold moves toward/past the
-pursuer, which is slightly suboptimal vs an erratic pursuer (a "never step closer" variant
-removes the dip but also removes the corner_trap fix, reverting it to 0.04). Survival vs
-both remains high (86% / 94%) and every other opponent/board improves or ties.
+causes a small survival dip (opponent matrix, 200 scenarios): `random` 0.97 -> 0.925
+(-0.045) and `deceptive` 0.875 -> 0.835 (-0.040). This is the INTRINSIC cost of corner
+escape: breaking a herd requires bold moves toward/past the pursuer, which is slightly
+suboptimal vs an erratic pursuer (a "never step closer" variant removes the dip but also
+removes the corner_trap fix, reverting it to 0.04). Survival vs both remains high
+(~93% / ~84%) and every other opponent/board improves or ties.
