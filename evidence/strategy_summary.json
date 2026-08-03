@@ -1,5 +1,5 @@
 {
-  "note": "Scenario-diverse paired benchmark (corrects the earlier fixed-scenario evidence).",
+  "note": "Scenario-diverse paired benchmark. Thief updated with anti-herding 'decorner' fix (see thief_trap_fix).",
   "baseline_commits": {
     "police": "00de656",
     "thief": "ac8d585"
@@ -44,9 +44,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 0.566,
-      "p95_ms": 1.401,
-      "max_ms": 10.261,
+      "p50_ms": 0.589,
+      "p95_ms": 1.447,
+      "max_ms": 11.779,
       "by_grid": {
         "7": {
           "n": 152,
@@ -102,9 +102,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 1.328,
-      "p95_ms": 2.737,
-      "max_ms": 9.801,
+      "p50_ms": 1.377,
+      "p95_ms": 2.848,
+      "max_ms": 15.856,
       "by_grid": {
         "7": {
           "n": 152,
@@ -160,9 +160,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 1.238,
-      "p95_ms": 2.518,
-      "max_ms": 10.789,
+      "p50_ms": 1.38,
+      "p95_ms": 3.025,
+      "max_ms": 16.385,
       "by_grid": {
         "7": {
           "n": 152,
@@ -208,9 +208,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 1.616,
-      "p95_ms": 3.191,
-      "max_ms": 13.589,
+      "p50_ms": 1.664,
+      "p95_ms": 3.266,
+      "max_ms": 16.621,
       "by_grid": {
         "7": {
           "n": 152,
@@ -256,9 +256,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 1.43,
-      "p95_ms": 2.948,
-      "max_ms": 15.865,
+      "p50_ms": 1.388,
+      "p95_ms": 2.874,
+      "max_ms": 16.821,
       "by_grid": {
         "7": {
           "n": 152,
@@ -314,9 +314,9 @@
       "technical": 0,
       "illegal": 0,
       "timeouts": 0,
-      "p50_ms": 1.619,
-      "p95_ms": 3.314,
-      "max_ms": 11.307,
+      "p50_ms": 1.623,
+      "p95_ms": 3.336,
+      "max_ms": 16.872,
       "by_grid": {
         "7": {
           "n": 152,
@@ -425,6 +425,131 @@
       "cand_police_cap": 0.61,
       "base_thief_surv": 0.935,
       "cand_thief_surv": 0.955
+    }
+  },
+  "thief_trap_fix": {
+    "root_cause": "escape-default maximises distance -> runs along the low-degree boundary into a corner where an equal-speed herder pins it",
+    "condition_added": "MetaController._thief_choice: if no barriers on board AND current cell legal-degree<=2 (a corner) -> select 'decorner' (mobility-first evade) instead of 'escape'",
+    "new_brain": "strategy/thief_decorner.DecornerBrain (evade safety terms + legal-degree ranked above distance)",
+    "fresh_heldout_opponents": "sim/opponents/trap.py (edge_herder, choke_controller, delayed_corner, seal_assist) - created after selection, generic/legal",
+    "results": {
+      "primary": {
+        "baseline": 0.7683,
+        "old_cand": 0.915,
+        "new_cand": 0.93,
+        "new_ci": [
+          0.9083,
+          0.95
+        ],
+        "paired_new_vs_baseline": [
+          0.1317,
+          0.19
+        ],
+        "technical": 0,
+        "illegal": 0,
+        "timeouts": 0,
+        "p95_ms": 3.769,
+        "by_grid_new": {
+          "7": {
+            "n": 152,
+            "rate": 0.888
+          },
+          "9": {
+            "n": 151,
+            "rate": 0.921
+          },
+          "11": {
+            "n": 153,
+            "rate": 0.967
+          },
+          "13": {
+            "n": 144,
+            "rate": 0.944
+          }
+        }
+      },
+      "police_capture_new": {
+        "rate": 0.4867,
+        "ci": [
+          0.45,
+          0.5267
+        ],
+        "barrier": {
+          "barriers_per_game": 6.015,
+          "useful": 3609,
+          "zero_or_negative": 0,
+          "useful_rate": 1.0,
+          "self_obstruction": 0,
+          "reachable_area_reduction_total": 12779,
+          "capture_via_barrier_action": 133,
+          "avg_budget_remaining": 15.0
+        }
+      },
+      "cvc": {
+        "old": 0.8333,
+        "new": 0.865
+      },
+      "corner_trap": {
+        "baseline": 0.2033,
+        "old_cand": 0.04,
+        "new_cand": 0.51
+      },
+      "fresh_heldout": {
+        "edge_herder": {
+          "baseline": 0.34,
+          "old_cand": 0.9667,
+          "new_cand": 0.96
+        },
+        "choke_controller": {
+          "baseline": 0.9667,
+          "old_cand": 0.98,
+          "new_cand": 0.98
+        },
+        "delayed_corner": {
+          "baseline": 0.15,
+          "old_cand": 0.0033,
+          "new_cand": 0.38
+        },
+        "seal_assist": {
+          "baseline": 0.69,
+          "old_cand": 0.72,
+          "new_cand": 0.77
+        }
+      },
+      "matrix_thief_surv": {
+        "greedy": {
+          "old": 0.93,
+          "new": 0.93
+        },
+        "random": {
+          "old": 0.97,
+          "new": 0.925
+        },
+        "shortest": {
+          "old": 0.93,
+          "new": 0.93
+        },
+        "mobility": {
+          "old": 0.93,
+          "new": 0.945
+        },
+        "corner_trap": {
+          "old": 0.04,
+          "new": 0.48
+        },
+        "barrier_heavy": {
+          "old": 0.99,
+          "new": 0.99
+        },
+        "deceptive": {
+          "old": 0.875,
+          "new": 0.835
+        },
+        "reference": {
+          "old": 0.955,
+          "new": 0.965
+        }
+      }
     }
   }
 }

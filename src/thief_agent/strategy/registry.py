@@ -7,6 +7,7 @@ from .police_greedy import PoliceGreedyBrain
 from .police_herding import HerdBrain
 from .police_hybrid import PoliceHybridBrain
 from .police_intercept import InterceptBrain
+from .thief_decorner import DecornerBrain
 from .thief_distance import ThiefDistanceBrain
 from .thief_endgame import EndgameBrain
 from .thief_entropy import EntropyBrain
@@ -28,6 +29,7 @@ THIEF_PORTFOLIO = {
     "entropy": EntropyBrain,
     "endgame": EndgameBrain,
     "hybrid": ThiefHybridBrain,
+    "decorner": DecornerBrain,
 }
 
 

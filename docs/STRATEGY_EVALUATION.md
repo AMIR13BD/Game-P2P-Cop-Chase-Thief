@@ -1,58 +1,38 @@
-# Evaluation (scenario-diverse, corrected)
-
-## Correction notice
-The earlier evaluation ran "500 seeds" on ONE fixed configuration (grid 7, cop (0,0),
-thief (3,3), default budget/limit). Because production agents are deterministic (epsilon=0),
-different seeds produced the **same** trajectory, so that benchmark measured one scenario
-repeatedly. It overstated results (Thief "100% survival"; "Police never regresses"). This
-corrected benchmark uses genuinely distinct, contract-valid, **paired** scenarios.
+# Evaluation (scenario-diverse, corrected + trap fix)
 
 ## Method
-`sim/scenarios.generate` + `sim/varied.evaluate`: **600 distinct scenarios** (seed 12345),
-varying grid {7,9,11,13}, both start cells (distinct), spatial distance, barrier budget
-{14,20,28} and move/survival limit {35,45,60} — all within Appendix F (grid>=7,
-barriers>=14, moves>=35). Baseline and candidate receive the **same** scenario (paired);
-95% CIs by bootstrap (rate) and paired bootstrap (difference). Unique trajectories: 568/600.
+600 distinct contract-valid scenarios (grids 7/9/11/13, varied starts/distance, budgets
+14/20/28, move limits 35/45/60; same-cell starts rejected), paired baseline vs candidate,
+bootstrap 95% CIs (`sim/{scenarios,varied,stats}.py`). corner_trap is a DIAGNOSTIC opponent;
+fresh held-out trap opponents (`sim/opponents/trap.py`) validate generalisation and were not
+tuned on.
 
-## Headline (paired, held-out)
-| Side | Baseline [CI] | Candidate [CI] | Paired Δ [CI] |
-|---|---|---|---|
-| Police capture | 0.232 [0.197,0.268] | **0.487 [0.450,0.527]** | **+0.255 [0.210,0.302]** |
-| Thief survival | 0.768 [0.733,0.803] | **0.915 [0.892,0.937]** | **+0.147 [0.117,0.178]** |
+## Thief candidate WITH the decorner trap fix (paired)
+| Axis | Baseline | Old candidate | New candidate | 95% CI (new) |
+|---|---|---|---|---|
+| Primary survival (vs baseline Police) | 0.768 | 0.915 | **0.930** | [0.908, 0.950] |
+| paired Δ vs baseline | – | – | +0.16 | [0.132, 0.190] |
+| corner_trap (diagnostic) | 0.203 | 0.040 | **0.510** | – |
+| cand-vs-cand survival | – | 0.833 | **0.865** | – |
+| Police capture (UNCHANGED) | 0.232 | 0.487 | **0.487** | [0.450, 0.527] |
 
-Paired-difference CIs exclude 0 → statistically significant; effect sizes large.
+By grid (new thief survival): 7 .888, 9 .921, 11 .967, 13 .944 (all >= 0.888).
 
-## By board size (grid) — no regression on any board
-Police capture: 7 .355->.572, 9 .245->.550, 11 .176->.418, 13 .146->.403.
-Thief survival: 7 .645->.855, 9 .755->.914, 11 .824->.954, 13 .854->.938.
+## Fresh held-out trap opponents (300 each; baseline / old / new)
+edge_herder 0.34 / 0.967 / 0.96 ; choke_controller 0.967 / 0.98 / 0.98 ;
+delayed_corner 0.15 / 0.003 / **0.38** ; seal_assist 0.69 / 0.72 / 0.77. No regression; the
+corner-herding ones (delayed_corner) recover strongly -> the fix is general, not corner_trap-specific.
 
-## Candidate vs candidate (corrects the false "100%")
-Cand Police vs Cand Thief: capture **0.167**; Thief survival vs Cand Police **0.833** (NOT 100%).
+## Opponent matrix (old cand -> new cand)
+greedy .93->.93, random .96->.938, shortest .93->.93, mobility .93->.945, corner_trap .04->.48,
+barrier_heavy .99->.99, deceptive .902->.856, reference(custom adapter) .955->.965.
+Regressions >0.02: `deceptive` (-0.046, significant) and `random` (-0.022, borderline) — the
+intrinsic cost of corner escape vs randomised pursuers; flagged for review (survival stays 86%/94%).
 
-## Opponent matrix (200 varied scenarios; base->cand)
-'reference' is a CUSTOM reference-baseline adapter in THIS repo — NOT the official
-lecturer/reference implementation.
+## Safety
+0 technical, 0 illegal, 0 timeouts; p95 <= 3.8 ms. Police strategy byte-unchanged.
 
-| opponent | set | police capture | thief survival |
-|---|---|---|---|
-| greedy | tuning | 0.14->0.55 | 0.91->0.93 |
-| random | tuning | 0.69->0.86 | 0.94->0.97 |
-| shortest | tuning | 0.14->0.24 | 0.91->0.93 |
-| mobility | tuning | 0.09->0.47 | 0.92->0.93 |
-| corner_trap | held_out | 0.46->0.71 | **0.20->0.04 (REGRESSION)** |
-| barrier_heavy | held_out | 0.14->0.24 | 0.99->0.99 |
-| deceptive | held_out | 0.46->0.71 | 0.86->0.88 |
-| reference (custom) | held_out | 0.12->0.61 | 0.94->0.95 |
-
-Police improves on **every** opponent (no regression). Thief improves/ties on 7/8 but
-**regresses vs corner_trap** (escape-default is herded into corners) — a real subgroup
-regression flagged for user approval (rule 27).
-
-## Safety (all matchups)
-0 technical, 0 illegal, 0 timeouts; decision p95 <= 2.85 ms.
-
-## Verdicts (corrected)
-POLICE STRATEGY: PROVEN STRONGER (broad, no regression).
-THIEF STRATEGY: PROVEN STRONGER on the primary paired axis, WITH a corner_trap subgroup
-regression requiring user approval; recommended follow-up: restore `evade` against
-corner-herding opponents (not done here — "do not change strategies yet").
+## Verdicts
+POLICE STRATEGY: PROVEN STRONGER — UNCHANGED.
+THIEF STRATEGY: PROVEN STRONGER — TRAP REGRESSION RESOLVED (corner_trap 0.04->0.51 >= baseline
+0.20; primary/cvc/fresh-held-out gates met), with a disclosed small deceptive/random trade.

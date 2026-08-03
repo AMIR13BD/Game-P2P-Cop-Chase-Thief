@@ -80,6 +80,10 @@ class MetaController(BrainBase):
             return "evade", "on an articulation cell: avoid self-trap"
         if self.profile.get("barrier_tendency", 0) > 0.2:
             return "evade", "barrier-heavy opponent: avoid seals"
+        if not obs.barriers and len(board.neighbors(obs.self_pos)) <= 2:
+            # cornered on an open board (no walls to hide behind): a herder can pin a
+            # distance-maximiser here, so recover mobility instead of fleeing deeper
+            return "decorner", "cornered with no barriers: recover mobility (anti-herding)"
         return "escape", "preserve distance, mobility and escape routes"
 
     def select(self, obs: Observation):

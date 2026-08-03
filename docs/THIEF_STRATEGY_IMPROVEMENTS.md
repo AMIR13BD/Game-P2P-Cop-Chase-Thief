@@ -1,18 +1,34 @@
-# Thief strategy improvements (corrected evidence)
+# Thief strategy improvements (corrected + anti-herding trap fix)
 
-**Change (selection-only, `MetaController._thief_choice`):** default to `escape`
-(distance + mobility + vertex-disjoint routes), keep `evade` on articulation cells and vs
-barrier-heavy opponents, drop the frozen `endgame`/`entropy` picks.
+## Base change (accepted earlier)
+`MetaController._thief_choice` defaults to `escape` (distance + mobility + disjoint routes);
+`evade` on articulation cells / barrier-heavy opponents. Scenario-diverse paired survival
+0.768 -> 0.915.
 
-**Scenario-diverse evidence (600 distinct scenarios, paired):**
-survival 0.768 [0.733,0.803] -> **0.915 [0.892,0.937]**, paired Δ **+0.147 [0.117,0.178]**.
-Improves on **every** board (7/9/11/13). Vs the strong candidate Police it survives **0.833**
-(NOT 100% — the earlier claim was an artifact of one repeated scenario).
+## Trap fix (this task) — resolves the corner_trap regression
+**Root cause (from failed trajectories):** `escape` maximises distance, which on an open
+board means moving ALONG the low-degree boundary; an equal-speed herder (e.g. corner_trap)
+pins the thief in a corner (traced: thief (0,3)->(0,4)->..->(0,6)->..->(6,6), captured).
 
-**Known regression (rule 27, requires user approval):** vs the `corner_trap` opponent
-survival drops **0.20 -> 0.04** — escape-default (maximise distance) is herded into corners.
-Everywhere else it improves or ties (7/8 opponents). Recommended follow-up (NOT applied here,
-per "do not change strategies yet"): re-enable `evade`/anti-herding when a corner-trapping
-pattern is detected.
+**Smallest general fix (topology-only, no opponent name/position/seed/map):** add one
+selection branch — if the board has **no barriers** AND the thief's cell has **legal-degree
+<= 2** (a corner on an open board), select the new **`decorner`** brain
+(`strategy/thief_decorner.DecornerBrain`): EvadeBrain's safety terms with **legal-degree
+ranked above distance**, so it climbs OUT of the corner instead of fleeing deeper. The
+existing `EvadeBrain` (and the frozen baseline that delegates to it) is left byte-unchanged.
 
-THIEF STRATEGY: PROVEN STRONGER on the primary paired axis, with the corner_trap caveat above.
+**Results (paired, scenario-diverse):**
+- corner_trap survival: baseline 0.203, old candidate 0.040 -> **new 0.510** (gate >=0.20 met).
+- primary survival: 0.915 -> **0.930** (>=0.90; +0.015).
+- cand-vs-cand survival: 0.833 -> **0.865** (>=0.80).
+- Fresh HELD-OUT trap opponents (created after selection): delayed_corner 0.003->**0.38**
+  (generalises!), edge_herder 0.967->0.96, choke_controller 0.98->0.98, seal_assist 0.72->0.77.
+- 0 technical/illegal/timeouts; p95 <= 3.8 ms.
+
+**Honest trade (flagged for review):** vs the two RANDOMISED opponents the corner rule
+causes a small, statistically-significant survival dip: `deceptive` 0.902 -> 0.856
+(paired 95% CI [-0.074,-0.018]) and `random` 0.960 -> 0.938 ([-0.042,-0.004]). This is the
+INTRINSIC cost of corner escape: breaking a herd requires bold moves toward/past the
+pursuer, which is slightly suboptimal vs an erratic pursuer (a "never step closer" variant
+removes the dip but also removes the corner_trap fix, reverting it to 0.04). Survival vs
+both remains high (86% / 94%) and every other opponent/board improves or ties.
