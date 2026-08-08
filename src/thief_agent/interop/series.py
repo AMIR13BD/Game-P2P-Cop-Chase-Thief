@@ -26,7 +26,10 @@ def identity_for(
         "group_id": group,
         "group_name": group,
         "members": members or [],
-        "repos": repos or {"cop": "local", "thief": "local"},
+        "repos": repos or {
+            "cop": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police",
+            "thief": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Thief",
+        },
         "mcp_servers": mcp_servers or {},
         "llm_model": llm_model,
         "spec": system_spec(),
