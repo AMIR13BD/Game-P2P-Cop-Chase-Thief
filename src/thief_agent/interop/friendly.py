@@ -16,7 +16,7 @@ from pathlib import Path
 from ..domain.crypto import canonical_json
 from .artifacts import build_config, build_declaration, build_log, build_result
 from .client import McpTransport
-from .series import identity_for, run_series
+from .series import identity_for, mcp_servers_for, run_series
 from .server import start_peer_server
 
 MATCH_MODE = "friendly"
@@ -91,6 +91,7 @@ def run_friendly(
     env: dict | None = None,
     turn_timeout: float = 180.0,
     identity: dict | None = None,
+    public_mcp_url: str | None = None,
     listener=None,
 ) -> FriendlyResult:
     """Stand up our server, dial the opponent, play a full friendly series, write artifacts.
@@ -98,7 +99,7 @@ def run_friendly(
     NEVER sends email. NEVER marks the match counted. Returns a FriendlyResult whose
     ``lecturer_report_sent`` is always False.
     """
-    identity = identity or identity_for(group)
+    identity = identity or identity_for(group, mcp_servers=mcp_servers_for(public_mcp_url))
     inboxes = start_peer_server(f"interop-{group}", host, port, token)
     transport = McpTransport(opponent_url, inboxes, token=token, env=env)
     series = run_series(

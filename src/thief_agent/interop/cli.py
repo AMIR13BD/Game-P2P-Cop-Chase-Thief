@@ -23,6 +23,10 @@ def _friendly(args) -> int:
     token = args.token or None
     print(f"match_mode=friendly  group={args.group}  role={args.role}  peer={args.peer}")
     print(f"  bearer_auth={'on' if token else 'off (reference design: none)'}")
+    print(
+        "  public_mcp_url="
+        + (args.public_mcp_url or "(none — a peer that builds a declaration will refuse)")
+    )
     result = run_friendly(
         group=args.group,
         opponent_url=args.peer,
@@ -36,6 +40,7 @@ def _friendly(args) -> int:
         num_games=args.games,
         seed=args.seed,
         turn_timeout=args.turn_timeout,
+        public_mcp_url=args.public_mcp_url or None,
         listener=lambda e: print(f"  [{e.get('type')}] {e}") if args.verbose else None,
     )
     print(f"\n  game_id  {result.game_id}\n  game_uid {result.game_uid}")
@@ -75,6 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=8901)
     p.add_argument("--token", default="", help="optional shared bearer token (off by default)")
+    p.add_argument(
+        "--public-mcp-url",
+        default="",
+        help="our PUBLIC MCP URL (e.g. the Cloudflare tunnel) to advertise in the "
+        "negotiation identity's mcp_servers; required by peers that build a pre-game "
+        "declaration (e.g. sharNamr). Runtime value — never hardcoded.",
+    )
     p.add_argument("--out", default="runs/interop")
     p.add_argument("--games", type=int, default=6)
     p.add_argument("--seed", type=int, default=1234)

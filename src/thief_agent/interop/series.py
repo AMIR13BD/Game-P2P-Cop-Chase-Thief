@@ -33,6 +33,22 @@ def identity_for(
     }
 
 
+def mcp_servers_for(public_mcp_url: str | None) -> dict:
+    """Our public MCP address(es) for the negotiated identity, keyed role -> URL.
+
+    One tunnel endpoint serves both roles across the alternating series, so both keys
+    point at the same URL. The value is a RUNTIME input (Cloudflare quick-tunnel
+    hostnames change), never hardcoded. Empty when unset, which preserves the prior
+    wire shape for peers that do not require the field (the official reference, and our
+    own tests). A peer that BUILDS a pre-game declaration — e.g. sharNamr's Cop —
+    refuses a group whose ``mcp_servers`` is empty, so a real cross-team match must
+    pass ``--public-mcp-url``.
+    """
+    if not public_mcp_url:
+        return {}
+    return {"cop": public_mcp_url, "thief": public_mcp_url}
+
+
 @dataclass
 class SeriesResult:
     summaries: list = field(default_factory=list)
