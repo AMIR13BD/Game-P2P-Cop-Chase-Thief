@@ -1,0 +1,43 @@
+"""Shape the friendly result to the reference submission schema: add top-level
+``mutual_agreement``, ``links.github`` and per-sub-game timing (``started_at`` /
+``ended_at`` / ``steps`` / ``log_files``). ADDITIVE only — scores, roles, audit and
+github_commit are untouched; used for the friendly/demo result export.
+"""
+
+import hashlib
+from datetime import datetime, timedelta
+
+from ..domain.crypto import canonical_json
+from . import ids
+
+
+def _ended(started: str, secs) -> str:
+    try:
+        return (datetime.fromisoformat(started) + timedelta(seconds=float(secs))).isoformat()
+    except (ValueError, TypeError):
+        return started or ""
+
+
+def enrich_result(result_doc: dict, summaries: list, own: dict, peer: dict) -> dict:
+    """Augment a built friendly result IN PLACE so its structure matches the reference."""
+    gid = result_doc["game_id"]
+    ours, theirs = result_doc["groups"]
+    by_n = {s["sub_game_number"]: s for s in summaries}
+    for row in result_doc["sub_games"]:
+        n = row["sub_game_number"]
+        s = by_n.get(n, {})
+        row["started_at"] = s.get("started_at", "")
+        row["ended_at"] = _ended(row["started_at"], s.get("duration_seconds", 0))
+        row["steps"] = s.get("steps", 0)
+        row["log_files"] = {ours: ids.log_name(gid, n), theirs: ids.log_name(gid, n)}
+    result_doc["links"]["github"] = {ours: own.get("repos", {}), theirs: peer.get("repos", {})}
+    clean = bool(result_doc["sub_games"]) and all(
+        r["audit"]["log_verified"] and not r["audit"]["tampered"] for r in result_doc["sub_games"]
+    )
+    result_doc["mutual_agreement"] = {
+        "confirmed": clean,
+        "sha256": hashlib.sha256(
+            canonical_json({"sub_games": result_doc["sub_games"]}).encode("utf-8")
+        ).hexdigest(),
+    }
+    return result_doc

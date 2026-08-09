@@ -18,6 +18,7 @@ from .artifacts import build_config, build_declaration, build_log, build_result
 from .client import McpTransport
 from .series import identity_for, mcp_servers_for, run_series
 from .server import start_peer_server
+from .submission import enrich_result
 
 MATCH_MODE = "friendly"
 LECTURER_REPORT_SENT = False  # a friendly run can never flip this; there is no sender wired
@@ -76,6 +77,9 @@ def emit_artifacts(out_dir: Path, series, terms: dict, ended: str = "") -> tuple
             )
         )
     result_doc = build_result(gid, guid, ours, theirs, series.summaries, commits)
+    result_doc = enrich_result(
+        result_doc, series.summaries, series.own_identity, series.peer_identity
+    )
     paths.append(_write(out_dir / f"result_{gid}.json", result_doc))
     return paths, result_doc
 
