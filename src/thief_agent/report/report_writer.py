@@ -61,7 +61,7 @@ def build_result(
         "game_id": gid,
         "game_uid": ids.game_uid(gid),
         "links": ids.links(gid),
-        "timezone": "UTC",
+        "timezone": "Asia/Jerusalem",
         "groups": list(groups),
         "repos": repos,
         "num_sub_games": len(sub_games),

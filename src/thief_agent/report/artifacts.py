@@ -40,7 +40,7 @@ def build_declaration(
         "game_id": gid,
         "game_uid": ids.game_uid(gid),
         "links": ids.links(gid),
-        "timezone": "UTC",
+        "timezone": "Asia/Jerusalem",
         "game_started_at": started,
         "game_ended_at": ended,
         "num_sub_games": num_sub_games,
