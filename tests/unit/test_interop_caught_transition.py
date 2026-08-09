@@ -41,17 +41,21 @@ class _FakeTransport:
 
 class _StubEngine:
     """Stands in for SubEngine so we exercise ONLY the runtime's caught -> audit control
-    flow. ``take_turn`` yields an opening move then the caught concession."""
+    flow. ``take_turn`` yields the opening move; ``concede`` yields the caught HOLD."""
 
     def __init__(self, role, outcome, records, concession):
         self.role = role
         self._outcome = outcome
         self.records = records
         self.step = len(records)
-        self._turns = [TurnMessage(step=1, sender=role, commit="open", hint=""), concession]
+        self._opening = TurnMessage(step=1, sender=role, commit="open", hint="")
+        self._concession = concession
 
     def take_turn(self):
-        return self._turns.pop(0)
+        return self._opening
+
+    def concede(self):
+        return self._concession
 
     def receive(self, msg):
         return self._outcome

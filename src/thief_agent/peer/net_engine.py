@@ -87,6 +87,31 @@ class PeerHalf:
             "barrier_placed": barrier_placed,
         }
 
+    def hold(self) -> dict:
+        """A HOLD turn: seal the CURRENT (unchanged) position — no move. Used for the caught
+        concession so a caught thief does not step off its cell (reference send_final /
+        MoveType.HOLD semantics)."""
+        self.step += 1
+        self.own_scent = smell.step_update(self.own_scent, self.pos, self.board, self.rho)
+        payload = build_payload(
+            self.step,
+            self.role,
+            f"grid={self.board.size};self={list(self.pos)}",
+            "HOLD:-",
+            "truth",
+            "",
+        )
+        self.records.append({"payload": payload, **seal(payload)})
+        return {
+            "step": self.step,
+            "sender": self.role,
+            "commit": self.records[-1]["commit"],
+            "hint": "",
+            "scent": _grid_out(self.own_scent),
+            "claim": None,
+            "barrier_placed": None,
+        }
+
     def _apply_barrier(self, bp) -> bool:
         """Apply a peer's public barrier declaration on the Thief's board, keeping both
         boards identical. Rejects malformed/out-of-bounds/duplicate cells. Returns True

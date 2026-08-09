@@ -79,6 +79,25 @@ class SubEngine:
         self.pending_response = None
         return message
 
+    def concede(self) -> TurnMessage:
+        """Caught: seal a HOLD (no move) and deliver the honest claim_response. A caught
+        thief must NOT make another move — it holds its cell and ends the sub-game."""
+        out = self.half.hold()
+        message = TurnMessage(
+            step=out["step"],
+            sender=out["sender"],
+            commit=out["commit"],
+            hint=out["hint"],
+            smell_grid=out["scent"],
+            timestamp=_now_iso(),
+            barrier_placed=None,
+            capture_claim=None,
+            claim_response=self.pending_response,
+            win_claim=None,
+        )
+        self.pending_response = None
+        return message
+
     def receive(self, msg: TurnMessage) -> IncomingOutcome:
         """Fold an inbound turn into our belief/scent/barriers; resolve capture/survival."""
         legacy = {

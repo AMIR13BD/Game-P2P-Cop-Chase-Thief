@@ -72,8 +72,8 @@ class SubGameRuntime:
             self.result = ("capture", "police")
         elif outcome.opponent_won:
             self.result = ("survival", "thief")
-        elif outcome.i_am_caught:  # thief: deliver the concession, then end
-            self.transport.send_turn(self.engine.take_turn().to_wire())
+        elif outcome.i_am_caught:  # thief: HOLD + honest claim_response (no move), then end
+            self.transport.send_turn(self.engine.concede().to_wire())
             self.result = ("capture", "police")
         else:
             self._take_turn()
