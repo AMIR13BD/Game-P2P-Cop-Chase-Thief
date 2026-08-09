@@ -44,13 +44,26 @@ def run(args) -> int:
             print(exc)
             return 2
     result = gr.load_result(args.dir, args.game_id)
-    ok, reason = gr.should_send(result)
+    allow_uncounted = getattr(args, "demo_allow_uncounted", False)
+    ok, reason = gr.should_send(result, allow_uncounted=allow_uncounted)
     if args.action == "validate":
         print(f"would_send={ok} reason={reason}")
         return 0 if ok else 1
     if not ok:
         print(f"NOT SENDING (fail-closed): {reason}")
         return 1
+    if allow_uncounted:  # DEMO ONLY: force an explicit, non-lecturer recipient
+        if not args.recipient:
+            print(
+                "NOT SENDING (fail-closed): --demo-allow-uncounted requires an explicit --recipient"
+            )
+            return 1
+        if args.recipient == ga.DEFAULT_RECIPIENT:
+            print("NOT SENDING (fail-closed): demo override must not target the lecturer address")
+            return 1
+        print(
+            f"DEMO override: emailing an uncounted result to {args.recipient} (lecturer NOT used)"
+        )
     name, blob = gr.report_attachment(args.dir, args.game_id)
     try:
         gr.validate_attachment(blob)

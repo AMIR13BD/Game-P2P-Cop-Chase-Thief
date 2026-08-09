@@ -65,6 +65,13 @@ def build_parser() -> argparse.ArgumentParser:
     gm.add_argument("--game-id", dest="game_id", default="amireman-police-vs-opponent")
     gm.add_argument("--recipient", default=None)
     gm.add_argument("--email-mode", dest="email_mode", default=None)
+    gm.add_argument(
+        "--demo-allow-uncounted",
+        dest="demo_allow_uncounted",
+        action="store_true",
+        help="DEMO ONLY: email a friendly/uncounted result; requires an explicit "
+        "non-lecturer --recipient. Counted/official behaviour is unchanged.",
+    )
     gm.set_defaults(func=commands.cmd_gmail)
     return p
 

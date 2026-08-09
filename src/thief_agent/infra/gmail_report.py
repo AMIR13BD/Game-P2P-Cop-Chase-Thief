@@ -25,9 +25,14 @@ def validate_attachment(blob: bytes) -> None:
         raise ValueError(f"report attachment too large ({len(blob)} bytes)")
 
 
-def should_send(result: dict) -> tuple[bool, str]:
+def should_send(result: dict, allow_uncounted: bool = False) -> tuple[bool, str]:
     """Gate: exactly six sub-games, none technical/tampered, and a confirmed final
-    mutual agreement. Never send on technical failure, disagreement, or failed audit."""
+    mutual agreement. Never send on technical failure, disagreement, or failed audit.
+
+    ``allow_uncounted`` defaults to False -> the counted-two-peer requirement is enforced
+    EXACTLY as before (official/lecturer path unchanged). When True (DEMO ONLY, opt-in via
+    ``--demo-allow-uncounted``), the counted-two-peer check is skipped so a friendly result
+    can be emailed to OURSELVES, while the fail-closed safety checks above still apply."""
     if not isinstance(result, dict):
         return False, "no result"
     subs = result.get("sub_games", [])
@@ -36,6 +41,8 @@ def should_send(result: dict) -> tuple[bool, str]:
     for sg in subs:
         if sg.get("result") == "technical" or sg.get("audit", {}).get("tampered"):
             return False, "a technical or tampered sub-game is present"
+    if allow_uncounted:
+        return True, "ok (demo: uncounted result allowed)"
     ma = result.get("mutual_agreement", {})
     # Only a REAL counted two-peer match may be reported; self-play/dev artifacts
     # (mode 'local-dev', whose 'confirmed' flag is always True) are never sendable.
