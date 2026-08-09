@@ -1,92 +1,83 @@
-"""Counted netplay auto-emails the official result to the lecturer ONLY after a clean
-series + verified artifacts + passing match audit, via the existing Gmail send path
-(counted should_send gate, lecturer default). Fully mocked: no match, no real email."""
+"""Counted netplay: after the audit passes on the FULL artifacts, write the ONE
+reference-shaped result JSON and email THAT exact file once to the lecturer. The full audit
+is untouched (runs first); the final result is structurally identical to result_G002.json.
+Fully mocked: no match, no real email."""
 
+import json
 from argparse import Namespace
 
+from netplay_email_fixtures import G1, G2, LINKS, MA, SUB, TOP, FakeSDK
+
 from thief_agent import commands
-from thief_agent.infra import gmail_auth as ga
 
 
-class _FakeSDK:
-    def __init__(self, v_pass=True, m_pass=True):
-        self._v = {"passed": v_pass, "failures": []}
-        self._m = {"passed": m_pass, "failures": []}
+class _BM:  # capture build_message(recipient, attachment name)
+    def __init__(self):
+        self.recipient = self.name = None
 
-    async def networked_series(self, url, token, cfg, seed, terms):
-        return {
-            "sub_games": [{"sub_game": i + 1, "outcome": "capture"} for i in range(6)],
-            "role_sequence": [],
-            "peer_commit": "c" * 40,
-            "peer_ident": {},
-        }
-
-    def emit_and_verify(self, *a, **k):
-        return self._v
-
-    def verify_match(self, *a, **k):
-        return self._m
+    def __call__(self, sender, recipient, subject, body, name, blob):
+        self.recipient, self.name = recipient, name
+        return {"raw": "x"}
 
 
-class _Rec:
-    def __init__(self, rc=0):
-        self.rc = rc
+class _SR:  # count send_report calls
+    def __init__(self):
         self.calls = 0
-        self.args = None
 
-    def __call__(self, args):
+    def __call__(self, service, message, marker):
         self.calls += 1
-        self.args = args
-        return self.rc
+        return {"status": "sent", "message_id": "X"}
 
 
-def _args(counted=True):
+def _args(out, counted=True):
     return Namespace(
         opponent_url="http://x/mcp",
-        token="t",
-        out="artifacts_net",
+        token="",
+        out=str(out),
         game_id="G001",
-        opponent="uoh-ay26",
+        opponent=G2,
         seed=1234,
         counted=counted,
     )
 
 
-def _wire(monkeypatch, sdk, rec):
-    monkeypatch.setattr(commands, "_sdk", lambda: sdk)
-    monkeypatch.setattr("thief_agent.infra.gmail_cli.run", rec)
-
-
-def test_counted_success_auto_emails_lecturer(monkeypatch):
-    rec = _Rec(rc=0)
-    _wire(monkeypatch, _FakeSDK(), rec)
-    rc = commands.cmd_netplay(_args(counted=True))
-    assert rc == 0 and rec.calls == 1
-    a = rec.args
-    assert a.action == "send" and a.email_mode == "send"
-    assert a.recipient is None  # -> lecturer default
-    assert a.dir == "artifacts_net" and a.game_id == "G001"
-    assert getattr(a, "demo_allow_uncounted", False) is False  # counted gate, no demo override
-    # the default recipient really is the lecturer
+def _wire(monkeypatch, sdk):
     monkeypatch.delenv("PT_GMAIL_RECIPIENT", raising=False)
-    assert ga.email_settings(None)["recipient"] == "rmisegal+uoh26finalgame@gmail.com"
+    monkeypatch.setattr(commands, "_sdk", lambda: sdk)
+    monkeypatch.setattr("thief_agent.infra.gmail_auth.build_service", lambda: object())
+    bm, sr = _BM(), _SR()
+    monkeypatch.setattr("thief_agent.infra.gmail_report.build_message", bm)
+    monkeypatch.setattr("thief_agent.infra.gmail_report.send_report", sr)
+    return bm, sr
 
 
-def test_email_failure_keeps_artifacts_and_reports(monkeypatch, capsys):
-    _wire(monkeypatch, _FakeSDK(), _Rec(rc=2))
-    rc = commands.cmd_netplay(_args(counted=True))
-    assert rc == 3 and "EMAIL FAILED" in capsys.readouterr().out
+def test_counted_writes_g002_shaped_result_and_emails_once(monkeypatch, tmp_path):
+    bm, sr = _wire(monkeypatch, FakeSDK())
+    rc = commands.cmd_netplay(_args(tmp_path))
+    assert rc == 0 and sr.calls == 1  # exactly ONE email
+    doc = json.loads((tmp_path / "result_G001.json").read_text())  # the ONE final result
+    assert set(doc) == TOP and set(doc["links"]) == LINKS and set(doc["mutual_agreement"]) == MA
+    assert set(doc["sub_games"][0]) == SUB
+    assert doc["sub_games"][0]["steps"] == 10  # real value from the series
+    assert doc["sub_games"][0]["started_at"] == ""  # unavailable -> empty, never fabricated
+    assert set(doc["links"]["github"]) == {G1, G2}  # per-group repo map, from real repos
+    assert bm.name == "result_G001.json"  # emailed THAT exact file
+    assert bm.recipient == "rmisegal+uoh26finalgame@gmail.com"  # lecturer default
 
 
-def test_non_counted_never_emails(monkeypatch):
-    rec = _Rec()
-    _wire(monkeypatch, _FakeSDK(), rec)
-    commands.cmd_netplay(_args(counted=False))
-    assert rec.calls == 0
+def test_gate_failure_keeps_artifacts_no_send(monkeypatch, tmp_path):
+    _bm, sr = _wire(monkeypatch, FakeSDK(mode="local-dev"))  # not counted-two-peer
+    rc = commands.cmd_netplay(_args(tmp_path))
+    assert rc == 3 and sr.calls == 0
+    assert (tmp_path / "result_G001.json").exists()  # artifacts kept
 
 
-def test_counted_audit_failure_blocks_email(monkeypatch):
-    rec = _Rec()
-    _wire(monkeypatch, _FakeSDK(m_pass=False), rec)
-    rc = commands.cmd_netplay(_args(counted=True))
-    assert rec.calls == 0 and rc == 1
+def test_audit_failure_blocks_email(monkeypatch, tmp_path):
+    _bm, sr = _wire(monkeypatch, FakeSDK(m_pass=False))
+    assert commands.cmd_netplay(_args(tmp_path)) == 1 and sr.calls == 0
+
+
+def test_non_counted_never_emails(monkeypatch, tmp_path):
+    _bm, sr = _wire(monkeypatch, FakeSDK())
+    commands.cmd_netplay(_args(tmp_path, counted=False))
+    assert sr.calls == 0

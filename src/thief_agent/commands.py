@@ -89,37 +89,49 @@ def cmd_netplay(args: argparse.Namespace) -> int:
         print(f"match_audit_passed={m['passed']} failures={m['failures']}")
         if not (v["passed"] and m["passed"]):
             return 1
-        return _official_email(args)  # artifacts saved + audited: now mail the lecturer
+        return _official_email(args, series)  # audited: shape ONE result + mail lecturer
     return 0 if v["passed"] else 1
 
 
-def _official_email(args: argparse.Namespace) -> int:
-    """Auto-send the official result JSON to the lecturer after a clean COUNTED match.
+def _official_email(args: argparse.Namespace, series: dict) -> int:
+    """After the counted audit passes, write the ONE reference-shaped result and email it.
 
-    Reuses the existing Gmail send path with the counted ``should_send()`` gate (NO demo
-    override) and the lecturer default recipient. Artifacts are already saved+verified; if
-    Gmail fails we keep everything and report EMAIL FAILED (the match result stands)."""
-    from argparse import Namespace
+    The audit ran on the FULL artifacts; we gate once more with the existing counted
+    ``should_send()`` on that full result, then strip it to the reference result SHAPE
+    (audit-only keys stay in the config/log artifacts), write the ONE final result JSON, and
+    email THAT exact file once to the lecturer. Any Gmail failure keeps all artifacts."""
+    import json
+    import os
 
-    from .infra.gmail_cli import run as gmail_run
+    from .infra import gmail_auth as ga
+    from .infra import gmail_cli as gc
+    from .infra import gmail_report as gr
+    from .report import ids, schemas
+    from .report.official_result import shape_official_result
 
-    rc = gmail_run(
-        Namespace(
-            action="send",
-            dir=args.out,
-            game_id=args.game_id,
-            recipient=None,  # -> lecturer default (rmisegal+uoh26finalgame@gmail.com)
-            email_mode="send",
-        )
-    )
-    if rc != 0:
-        print(
-            "EMAIL FAILED: counted match succeeded and all artifacts are saved; the lecturer "
-            "report was NOT sent — re-send with `python -m thief_agent gmail --action send "
-            f"--email-mode send --dir {args.out} --game-id {args.game_id}`."
-        )
+    full = gr.load_result(args.out, args.game_id)
+    ok, reason = gr.should_send(full)  # counted safety gate on the FULL audited result
+    if not ok:
+        print(f"EMAIL FAILED (gate): {reason}; artifacts kept, nothing sent.")
         return 3
-    print("lecturer_report_sent=True")
+    steps = {sg["sub_game"]: sg.get("steps", 0) for sg in series.get("sub_games", [])}
+    shaped = schemas.validate("result", shape_official_result(full, steps))
+    with open(os.path.join(args.out, ids.result_name(args.game_id)), "w", encoding="utf-8") as fh:
+        json.dump(shaped, fh, indent=2, sort_keys=True)  # THE one final result JSON
+    name, blob = gr.report_attachment(args.out, args.game_id)  # that exact file
+    gr.validate_attachment(blob)
+    st = ga.email_settings(None, "send")  # lecturer default recipient
+    msg = gr.build_message(
+        "me", st["recipient"], gc._subject(args.game_id), gc._body(args.game_id), name, blob
+    )
+    try:
+        service = ga.build_service()
+    except RuntimeError as exc:
+        print(f"EMAIL FAILED: {exc}; final result saved, nothing sent.")
+        return 3
+    marker = os.path.join(args.out, f"gmail_sent_{args.game_id}.json")
+    res = gr.send_report(service, msg, marker)  # idempotent: exactly one email
+    print(f"lecturer_report_sent={res['status']} id={res.get('message_id')} to={st['recipient']}")
     return 0
 
 
