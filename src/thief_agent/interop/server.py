@@ -15,7 +15,9 @@ required of a no-auth reference peer.
 import queue
 import socket
 import threading
+import time
 
+import uvicorn
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
 
@@ -31,6 +33,52 @@ class PeerInboxes:
         self.turns: queue.Queue = queue.Queue()
         self.audits: queue.Queue = queue.Queue()
         self.controls: queue.Queue = queue.Queue()
+
+
+class PeerServer:
+    """A running peer MCP server: its inboxes plus a drain-aware graceful stop.
+
+    The final-audit race this exists to close: the opponent's *last* ``submit_audit``
+    enqueues its payload and only THEN does uvicorn flush the tool's HTTP response. Our
+    runtime unblocks the instant the payload is enqueued (``poll_audit`` returns), so the
+    process could reach interpreter exit and kill the daemon server thread while that
+    ``200`` was still on the wire — the peer then saw ``502 Bad Gateway`` / a timeout.
+
+    ``stop`` keeps the server FULLY alive (listener open, requests served normally) until
+    the peer's in-flight connection(s) have drained — proper synchronization on uvicorn's
+    own active-connection count, not a blind sleep — bounded by ``max_linger`` so a peer
+    that never closes cannot hang us. Only then do we request a graceful uvicorn shutdown
+    (which itself waits for any still-open response to finish) and join the thread.
+    """
+
+    def __init__(self, inboxes: "PeerInboxes", server: uvicorn.Server, thread: threading.Thread):
+        self.inboxes = inboxes
+        self._server = server
+        self._thread = thread
+
+    def _active_connections(self) -> int | None:
+        state = getattr(self._server, "server_state", None)
+        return len(state.connections) if state is not None else None
+
+    def stop(self, max_linger: float = 8.0, settle: float = 0.3, grace: float = 5.0) -> None:
+        """Linger until the peer's final request has fully drained, then stop gracefully."""
+        deadline = time.monotonic() + max_linger
+        idle_since: float | None = None
+        while time.monotonic() < deadline:
+            active = self._active_connections()
+            if active is None:  # introspection unavailable -> fall back to a bounded linger
+                time.sleep(min(max_linger, 3.0))
+                break
+            now = time.monotonic()
+            if active == 0:
+                idle_since = idle_since if idle_since is not None else now
+                if now - idle_since >= settle:  # quiet long enough: the peer is done
+                    break
+            else:
+                idle_since = None  # a request is still in flight; keep serving
+            time.sleep(0.05)
+        self._server.should_exit = True  # graceful: uvicorn drains any open response first
+        self._thread.join(grace)
 
 
 def _ensure_port_free(host: str, port: int) -> None:
@@ -84,17 +132,28 @@ def build_peer_server(name: str, inboxes: PeerInboxes, token: str | None = None)
     return mcp
 
 
-def start_peer_server(name: str, host: str, port: int, token: str | None = None) -> PeerInboxes:
-    """Start this peer's MCP server on its own port in a background daemon thread."""
+def start_peer_server(name: str, host: str, port: int, token: str | None = None) -> PeerServer:
+    """Start this peer's MCP server on its own port in a background daemon thread.
+
+    We drive uvicorn ourselves (rather than ``FastMCP.run``) so the caller holds a handle
+    for a drain-aware graceful shutdown — see ``PeerServer.stop``. The ASGI app, path
+    (``/mcp``) and tool set are exactly what ``FastMCP.run(transport="http")`` would serve.
+    """
     _ensure_port_free(host, port)
     inboxes = PeerInboxes()
-    server = build_peer_server(name, inboxes, token)
-    thread = threading.Thread(
-        target=lambda: server.run(
-            transport="http", host=host, port=port, show_banner=False, log_level="warning"
-        ),
-        daemon=True,
-        name=f"mcp-{name}",
+    app = build_peer_server(name, inboxes, token).http_app()
+    config = uvicorn.Config(
+        app,
+        host=host,
+        port=port,
+        log_level="warning",
+        timeout_graceful_shutdown=5,
     )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True, name=f"mcp-{name}")
     thread.start()
-    return inboxes
+    while not server.started:  # don't return until the socket is accepting connections
+        if not thread.is_alive():
+            raise NetworkError(f"peer MCP server for {name} failed to start on {host}:{port}")
+        time.sleep(0.02)
+    return PeerServer(inboxes, server, thread)

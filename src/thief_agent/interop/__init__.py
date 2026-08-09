@@ -13,3 +13,6 @@ unable to email a lecturer (see ``friendly``).
 
 CODE_VERSION = "interop-1.0.0"
 DEFAULT_GROUP_ID = "amireman"
+# Our real team roster, advertised in the negotiated identity (declaration ``members``).
+# A peer's final audit checks that our ``members`` is non-empty, so this must never be [].
+DEFAULT_MEMBERS = ["Amir Fadila", "Eman Sarhan"]

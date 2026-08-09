@@ -9,6 +9,7 @@ sub-games, the opposite on even ones — so when we are cop the opponent is thie
 from dataclasses import dataclass, field
 
 from ..shared.sysinfo import system_spec
+from . import DEFAULT_MEMBERS
 from .negotiate import Negotiator
 from .runtime import SubGameRuntime
 from .scoring import role_for
@@ -25,7 +26,7 @@ def identity_for(
     return {
         "group_id": group,
         "group_name": group,
-        "members": members or [],
+        "members": members if members is not None else list(DEFAULT_MEMBERS),
         "repos": repos or {
             "cop": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police",
             "thief": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Thief",

@@ -100,20 +100,26 @@ def run_friendly(
     ``lecturer_report_sent`` is always False.
     """
     identity = identity or identity_for(group, mcp_servers=mcp_servers_for(public_mcp_url))
-    inboxes = start_peer_server(f"interop-{group}", host, port, token)
-    transport = McpTransport(opponent_url, inboxes, token=token, env=env)
-    series = run_series(
-        terms,
-        natural_role,
-        transport,
-        group,
-        github_commit,
-        own_identity=identity,
-        num_games=num_games,
-        seed=seed,
-        listener=listener,
-        turn_timeout=turn_timeout,
-    )
+    server = start_peer_server(f"interop-{group}", host, port, token)
+    transport = McpTransport(opponent_url, server.inboxes, token=token, env=env)
+    try:
+        series = run_series(
+            terms,
+            natural_role,
+            transport,
+            group,
+            github_commit,
+            own_identity=identity,
+            num_games=num_games,
+            seed=seed,
+            listener=listener,
+            turn_timeout=turn_timeout,
+        )
+    finally:
+        # Keep our MCP server alive until the peer's FINAL submit_audit response has fully
+        # flushed (and its client session drained) before we let the process exit — this is
+        # the fix for peers seeing 502/timeout on the last audit. See PeerServer.stop.
+        server.stop()
     ended = datetime.now(UTC).isoformat()
     paths, result_doc = emit_artifacts(Path(out_dir), series, terms, ended)
     clean = len(series.summaries) == num_games and all(

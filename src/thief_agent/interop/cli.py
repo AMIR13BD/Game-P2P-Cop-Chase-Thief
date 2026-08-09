@@ -12,6 +12,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from ..shared.gitinfo import current_commit
 from . import DEFAULT_GROUP_ID
 from .friendly import run_friendly
 from .terms import default_terms, validate_terms
@@ -21,8 +22,12 @@ def _friendly(args) -> int:
     terms = default_terms()
     validate_terms(terms)
     token = args.token or None
+    # Bind the audit's Step-0 github_commit to the REAL current HEAD (a 40-char SHA the
+    # peer's final audit validates); resolved at the CLI boundary, never in domain code.
+    commit = args.commit or current_commit(default="0" * 40)
     print(f"match_mode=friendly  group={args.group}  role={args.role}  peer={args.peer}")
     print(f"  bearer_auth={'on' if token else 'off (reference design: none)'}")
+    print(f"  github_commit={commit}")
     print(
         "  public_mcp_url="
         + (args.public_mcp_url or "(none — a peer that builds a declaration will refuse)")
@@ -36,7 +41,7 @@ def _friendly(args) -> int:
         host=args.host,
         port=args.port,
         token=token,
-        github_commit=args.commit,
+        github_commit=commit,
         num_games=args.games,
         seed=args.seed,
         turn_timeout=args.turn_timeout,
@@ -90,7 +95,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--out", default="runs/interop")
     p.add_argument("--games", type=int, default=6)
     p.add_argument("--seed", type=int, default=1234)
-    p.add_argument("--commit", default="local")
+    p.add_argument(
+        "--commit",
+        default=None,
+        help="github_commit for the audit Step-0 record; default is the real "
+        "`git rev-parse HEAD` (full 40-char SHA)",
+    )
     p.add_argument("--turn-timeout", type=float, default=180.0)
     p.add_argument("--verbose", action="store_true")
     p.set_defaults(func=_friendly)
