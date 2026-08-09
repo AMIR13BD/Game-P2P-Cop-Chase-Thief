@@ -87,8 +87,40 @@ def cmd_netplay(args: argparse.Namespace) -> int:
     if getattr(args, "counted", False):
         m = sdk.verify_match(args.out, args.game_id)
         print(f"match_audit_passed={m['passed']} failures={m['failures']}")
-        return 0 if m["passed"] else 1
+        if not (v["passed"] and m["passed"]):
+            return 1
+        return _official_email(args)  # artifacts saved + audited: now mail the lecturer
     return 0 if v["passed"] else 1
+
+
+def _official_email(args: argparse.Namespace) -> int:
+    """Auto-send the official result JSON to the lecturer after a clean COUNTED match.
+
+    Reuses the existing Gmail send path with the counted ``should_send()`` gate (NO demo
+    override) and the lecturer default recipient. Artifacts are already saved+verified; if
+    Gmail fails we keep everything and report EMAIL FAILED (the match result stands)."""
+    from argparse import Namespace
+
+    from .infra.gmail_cli import run as gmail_run
+
+    rc = gmail_run(
+        Namespace(
+            action="send",
+            dir=args.out,
+            game_id=args.game_id,
+            recipient=None,  # -> lecturer default (rmisegal+uoh26finalgame@gmail.com)
+            email_mode="send",
+        )
+    )
+    if rc != 0:
+        print(
+            "EMAIL FAILED: counted match succeeded and all artifacts are saved; the lecturer "
+            "report was NOT sent — re-send with `python -m thief_agent gmail --action send "
+            f"--email-mode send --dir {args.out} --game-id {args.game_id}`."
+        )
+        return 3
+    print("lecturer_report_sent=True")
+    return 0
 
 
 def cmd_simulate(args: argparse.Namespace) -> int:
