@@ -20,6 +20,14 @@ TOP = {
 }
 LINKS = {"config", "declaration", "github", "log", "result"}
 MA = {"confirmed", "sha256"}
+FINAL = {
+    "series_tie",
+    "sub_games_won",
+    "ties",
+    "tokens_total_series",
+    "total_score",
+    "winner_group",
+}
 SUB = {
     "audit",
     "ended_at",
@@ -68,6 +76,7 @@ def test_enriched_result_matches_reference_top_and_nesting():
     assert set(doc) == TOP
     assert set(doc["links"]) == LINKS
     assert set(doc["mutual_agreement"]) == MA
+    assert set(doc["final_result"]) == FINAL  # no extra analytics keys in the export
 
 
 def test_enriched_sub_games_item_matches_reference():

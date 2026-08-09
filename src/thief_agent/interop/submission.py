@@ -10,6 +10,18 @@ from datetime import datetime, timedelta
 from ..domain.crypto import canonical_json
 from . import ids
 
+# The reference result's final_result keys — the export is pruned to EXACTLY these so the
+# demo JSON is key-for-key identical to the reference. Scoring still computes every value;
+# we only omit our extra analytics keys from the serialized shape (no calculation change).
+_REF_FINAL_KEYS = (
+    "series_tie",
+    "sub_games_won",
+    "ties",
+    "tokens_total_series",
+    "total_score",
+    "winner_group",
+)
+
 
 def _ended(started: str, secs) -> str:
     try:
@@ -40,4 +52,6 @@ def enrich_result(result_doc: dict, summaries: list, own: dict, peer: dict) -> d
             canonical_json({"sub_games": result_doc["sub_games"]}).encode("utf-8")
         ).hexdigest(),
     }
+    fr = result_doc.get("final_result", {})
+    result_doc["final_result"] = {k: fr[k] for k in _REF_FINAL_KEYS if k in fr}
     return result_doc
