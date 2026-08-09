@@ -27,7 +27,8 @@ def identity_for(
         "group_id": group,
         "group_name": group,
         "members": members if members is not None else list(DEFAULT_MEMBERS),
-        "repos": repos or {
+        "repos": repos
+        or {
             "cop": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police",
             "thief": "https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Thief",
         },

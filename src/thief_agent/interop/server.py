@@ -38,17 +38,11 @@ class PeerInboxes:
 class PeerServer:
     """A running peer MCP server: its inboxes plus a drain-aware graceful stop.
 
-    The final-audit race this exists to close: the opponent's *last* ``submit_audit``
-    enqueues its payload and only THEN does uvicorn flush the tool's HTTP response. Our
-    runtime unblocks the instant the payload is enqueued (``poll_audit`` returns), so the
-    process could reach interpreter exit and kill the daemon server thread while that
-    ``200`` was still on the wire — the peer then saw ``502 Bad Gateway`` / a timeout.
-
-    ``stop`` keeps the server FULLY alive (listener open, requests served normally) until
-    the peer's in-flight connection(s) have drained — proper synchronization on uvicorn's
-    own active-connection count, not a blind sleep — bounded by ``max_linger`` so a peer
-    that never closes cannot hang us. Only then do we request a graceful uvicorn shutdown
-    (which itself waits for any still-open response to finish) and join the thread.
+    Closes the final-audit race — the peer's last ``submit_audit`` unblocks our
+    ``poll_audit`` before uvicorn flushes the ``200``, so the old daemon thread could be
+    killed at interpreter exit mid-response (peer saw 502/timeout). ``stop`` keeps serving
+    until the peer's connections drain (bounded by ``max_linger``), then shuts uvicorn down
+    gracefully (which itself waits for any still-open response) and joins the thread.
     """
 
     def __init__(self, inboxes: "PeerInboxes", server: uvicorn.Server, thread: threading.Thread):
@@ -133,21 +127,16 @@ def build_peer_server(name: str, inboxes: PeerInboxes, token: str | None = None)
 
 
 def start_peer_server(name: str, host: str, port: int, token: str | None = None) -> PeerServer:
-    """Start this peer's MCP server on its own port in a background daemon thread.
+    """Start this peer's MCP server in a background daemon thread, returning a handle.
 
-    We drive uvicorn ourselves (rather than ``FastMCP.run``) so the caller holds a handle
-    for a drain-aware graceful shutdown — see ``PeerServer.stop``. The ASGI app, path
-    (``/mcp``) and tool set are exactly what ``FastMCP.run(transport="http")`` would serve.
+    We drive uvicorn directly (not ``FastMCP.run``) so the caller can stop it gracefully
+    (``PeerServer.stop``); the ASGI app, ``/mcp`` path and tools match ``FastMCP.run``.
     """
     _ensure_port_free(host, port)
     inboxes = PeerInboxes()
     app = build_peer_server(name, inboxes, token).http_app()
     config = uvicorn.Config(
-        app,
-        host=host,
-        port=port,
-        log_level="warning",
-        timeout_graceful_shutdown=5,
+        app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=5
     )
     server = uvicorn.Server(config)
     thread = threading.Thread(target=server.run, daemon=True, name=f"mcp-{name}")
