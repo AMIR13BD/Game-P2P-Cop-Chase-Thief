@@ -46,6 +46,10 @@ def emit_artifacts(out_dir: Path, series, terms: dict, ended: str = "") -> tuple
     gid, guid = series.game_id, series.game_uid
     ours = series.own_identity["group_id"]
     theirs = series.peer_identity.get("group_id", "opponent")
+    commits = {
+        ours: series.own_identity.get("github_commit", ""),
+        theirs: series.peer_identity.get("github_commit", ""),
+    }
     started = series.summaries[0]["started_at"] if series.summaries else ""
     paths = [
         _write(
@@ -71,7 +75,7 @@ def emit_artifacts(out_dir: Path, series, terms: dict, ended: str = "") -> tuple
                 out_dir / f"log_{gid}_g{n:02d}.json", build_log(summary, gid, guid, ours, theirs)
             )
         )
-    result_doc = build_result(gid, guid, ours, theirs, series.summaries)
+    result_doc = build_result(gid, guid, ours, theirs, series.summaries, commits)
     paths.append(_write(out_dir / f"result_{gid}.json", result_doc))
     return paths, result_doc
 
@@ -99,7 +103,9 @@ def run_friendly(
     NEVER sends email. NEVER marks the match counted. Returns a FriendlyResult whose
     ``lecturer_report_sent`` is always False.
     """
-    identity = identity or identity_for(group, mcp_servers=mcp_servers_for(public_mcp_url))
+    identity = identity or identity_for(
+        group, mcp_servers=mcp_servers_for(public_mcp_url), github_commit=github_commit
+    )
     server = start_peer_server(f"interop-{group}", host, port, token)
     transport = McpTransport(opponent_url, server.inboxes, token=token, env=env)
     try:

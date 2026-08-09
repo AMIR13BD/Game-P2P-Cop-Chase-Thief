@@ -29,9 +29,12 @@ def _hw(spec: dict) -> dict:
 
 
 def _group_block(identity: dict) -> dict:
+    commit = identity.get("github_commit") or identity.get("git_commit_hash", "")
     return {
         "group_id": identity["group_id"],
         "group_name": identity.get("group_name", ""),
+        "git_commit_hash": commit,
+        "github_commit": commit,
         "members": identity.get("members", []),
         "repos": identity.get("repos", {}),
         "mcp_servers": identity.get("mcp_servers", {}),
@@ -100,7 +103,7 @@ def build_log(summary, gid, guid, group_id, opponent) -> dict:
     }
 
 
-def _result_rows(summaries, ours, theirs) -> list:
+def _result_rows(summaries, ours, theirs, commits) -> list:
     rows = []
     for s in summaries:
         outcome, our_role = s["result"], s["role"]
@@ -115,6 +118,7 @@ def _result_rows(summaries, ours, theirs) -> list:
                 "winner_group": (ours if so > st else (theirs if st > so else None)),
                 "tie": is_tie_row(outcome, so, st),
                 "tokens": {ours: 0, theirs: 0},
+                "github_commit": {ours: commits.get(ours, ""), theirs: commits.get(theirs, "")},
                 "audit": {
                     "log_verified": bool(s["audit"].get("log_verified")),
                     "tampered": bool(s["audit"].get("tampered")),
@@ -124,8 +128,8 @@ def _result_rows(summaries, ours, theirs) -> list:
     return rows
 
 
-def build_result(gid, guid, ours, theirs, summaries) -> dict:
-    rows = _result_rows(summaries, ours, theirs)
+def build_result(gid, guid, ours, theirs, summaries, commits=None) -> dict:
+    rows = _result_rows(summaries, ours, theirs, commits or {})
     final = {
         **aggregate(rows, ours, theirs),
         "games_played_including_this": {ours: 0, theirs: None},

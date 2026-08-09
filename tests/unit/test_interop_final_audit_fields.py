@@ -7,6 +7,7 @@ code is touched — these pin the interop wiring only.
 import re
 
 from thief_agent.interop import DEFAULT_GROUP_ID, DEFAULT_MEMBERS, cli
+from thief_agent.interop.artifacts import build_declaration, build_result
 from thief_agent.interop.engine import SubEngine
 from thief_agent.interop.friendly import FriendlyResult
 from thief_agent.interop.negotiate import Negotiator
@@ -34,6 +35,37 @@ def test_outgoing_negotiate_payload_carries_members():
 
 def test_explicit_members_still_honoured():
     assert identity_for("x", members=["Solo"])["members"] == ["Solo"]
+
+
+# ---- git commit in the negotiated identity (NOT in the signed terms) --------------------
+
+
+def test_negotiate_identity_carries_full_sha_outside_terms():
+    sha = "b" * 40
+    ident = identity_for(DEFAULT_GROUP_ID, github_commit=sha)
+    assert ident["git_commit_hash"] == sha and ident["github_commit"] == sha
+    wire = Negotiator(default_terms(), ident, DEFAULT_GROUP_ID).signed("thief", 1).to_wire()
+    assert wire["identity"]["git_commit_hash"] == sha
+    assert wire["identity"]["github_commit"] == sha
+    assert "github_commit" not in wire["terms"] and "git_commit_hash" not in wire["terms"]
+
+
+def test_declaration_and_result_carry_github_commit():
+    sha = "c" * 40
+    own, peer = identity_for("amireman", github_commit=sha), identity_for("opp", github_commit=sha)
+    decl = build_declaration("g", "u", own, peer, 1)
+    assert decl["groups"]["group_1"]["github_commit"] == sha
+    assert decl["groups"]["group_2"]["github_commit"] == sha
+    summaries = [
+        {
+            "sub_game_number": 1,
+            "result": "capture",
+            "role": "police",
+            "audit": {"log_verified": True, "tampered": False},
+        }
+    ]
+    res = build_result("g", "u", "amireman", "opp", summaries, {"amireman": sha, "opp": sha})
+    assert res["sub_games"][0]["github_commit"] == {"amireman": sha, "opp": sha}
 
 
 # ---- git_commit_hash -------------------------------------------------------------------

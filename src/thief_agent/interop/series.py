@@ -21,11 +21,19 @@ def identity_for(
     mcp_servers: dict | None = None,
     members: list | None = None,
     llm_model: str = "template",
+    github_commit: str = "",
 ) -> dict:
-    """This peer's static per-GROUP identity, exchanged in the handshake (roles alternate)."""
+    """This peer's static per-GROUP identity, exchanged in the handshake (roles alternate).
+
+    ``github_commit`` (== ``git_commit_hash``) is the full 40-char ``git rev-parse HEAD``
+    of the code running the game; it rides in the identity (NOT the signed terms) so the
+    peer's declaration binds our real commit. The caller resolves it at the boundary.
+    """
     return {
         "group_id": group,
         "group_name": group,
+        "git_commit_hash": github_commit,
+        "github_commit": github_commit,
         "members": members if members is not None else list(DEFAULT_MEMBERS),
         "repos": repos
         or {
@@ -76,7 +84,7 @@ def run_series(
     turn_timeout: float = 180.0,
 ) -> SeriesResult:
     """Play our side of a whole series against a real opponent."""
-    own_identity = own_identity or identity_for(group)
+    own_identity = own_identity or identity_for(group, github_commit=github_commit)
     result = SeriesResult(own_identity=own_identity)
     known_opponent: str | None = None
     for n in range(1, num_games + 1):
