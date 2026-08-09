@@ -60,34 +60,23 @@ def _friendly(args) -> int:
     fr = result.result_doc.get("final_result", {})
     print(f"\n  totals {fr.get('total_score')}  winner {fr.get('winner_group') or 'tie'}")
     print(f"  {len(result.artifacts)} artifacts under {Path(args.out).resolve()}")
-    print(f"\n  match_mode=friendly\n  lecturer_report_sent={result.lecturer_report_sent}")
-    print("  (friendly is structurally unable to email a lecturer — no sender is wired)")
-    if args.demo_email_recipient and result.clean:
-        _demo_email(args, result.game_id)
+    print(f"\n  match_mode={'counted' if args.counted else 'friendly'}")
+    out = str(Path(args.out))
+    if args.counted:  # OFFICIAL: same friendly transport/flow, then email the lecturer
+        if result.clean:
+            from .mailer import official_email  # lazy: keep the friendly module mail-free
+
+            official_email(out, result.game_id)
+        else:
+            print("  NOT EMAILING: series not clean (final audit failed) — artifacts kept")
+    else:
+        print(f"  lecturer_report_sent={result.lecturer_report_sent}")
+        print("  (friendly is structurally unable to email a lecturer — no sender is wired)")
+        if args.demo_email_recipient and result.clean:
+            from .mailer import demo_email  # lazy
+
+            demo_email(out, result.game_id, args.demo_email_recipient)
     return 0 if result.clean else 6
-
-
-def _demo_email(args, game_id: str) -> None:
-    """DEMO ONLY: auto-email the generated result JSON to OURSELVES after a clean run.
-
-    Reuses the existing Gmail send path (imported lazily so the friendly MODULE stays
-    mail-free). The demo guard in that path requires an explicit, non-lecturer recipient,
-    so this can never mail the lecturer; without --demo-email-recipient nothing is sent."""
-    from argparse import Namespace
-
-    from ..infra.gmail_cli import run as gmail_run  # lazy: keep module import surface clean
-
-    rc = gmail_run(
-        Namespace(
-            action="send",
-            dir=str(Path(args.out)),
-            game_id=game_id,
-            recipient=args.demo_email_recipient,
-            email_mode="send",
-            demo_allow_uncounted=True,
-        )
-    )
-    print(f"  demo_email_sent={rc == 0}  recipient={args.demo_email_recipient}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -127,6 +116,12 @@ def build_parser() -> argparse.ArgumentParser:
         "`git rev-parse HEAD` (full 40-char SHA)",
     )
     p.add_argument("--turn-timeout", type=float, default=180.0)
+    p.add_argument(
+        "--counted",
+        action="store_true",
+        help="OFFICIAL: same friendly transport/flow; after a clean final audit, auto-email "
+        "the ONE result JSON to the lecturer (rmisegal+uoh26finalgame@gmail.com).",
+    )
     p.add_argument(
         "--demo-email-recipient",
         dest="demo_email_recipient",
