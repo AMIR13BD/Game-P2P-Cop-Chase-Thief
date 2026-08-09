@@ -43,6 +43,18 @@ def test_localhost_and_ordinary_public_still_work(monkeypatch):
     }
 
 
+def test_empty_token_sends_no_authorization(monkeypatch):
+    monkeypatch.delenv("PT_TUNNEL_HEADERS", raising=False)
+    h = default_connect("https://cop.uohay26game.com/mcp", "").transport.headers
+    assert "Authorization" not in h  # empty token -> no bearer, like the friendly transport
+
+
+def test_empty_token_still_attaches_tunnel_headers(monkeypatch):
+    monkeypatch.setenv("PT_TUNNEL_HEADERS", "localtonet-skip-warning: true")
+    h = default_connect("https://x.localto.net/mcp", "").transport.headers
+    assert h == {"localtonet-skip-warning": "true"}  # tunnel header kept, still no bearer
+
+
 def test_authorization_override_is_rejected():
     with pytest.raises(ConfigError):
         tunnel_headers({"PT_TUNNEL_HEADERS": "Authorization: Bearer EVIL"})

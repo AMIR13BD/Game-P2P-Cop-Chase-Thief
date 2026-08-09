@@ -24,9 +24,13 @@ def transport_reason(exc) -> str:
 
 
 def default_connect(url, token):
-    # optional tunnel headers first; Authorization is applied last so it can never be
-    # overridden and bearer auth is always present (e.g. Localtonet warning-bypass header)
-    headers = {**tunnel_headers(), "Authorization": f"Bearer {token}"}
+    # optional tunnel headers first (e.g. Localtonet warning-bypass); Authorization is
+    # applied last so a tunnel header can never override it. An EMPTY token sends NO
+    # Authorization header — matching the proven friendly transport and the reference
+    # no-auth design (a bearer is attached only when one was actually agreed).
+    headers = dict(tunnel_headers())
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return Client(StreamableHttpTransport(url, headers=headers))
 
 
