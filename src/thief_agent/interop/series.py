@@ -1,8 +1,7 @@
 """A SERIES of N sub-games between two peers with role alternation.
 
-The transport/servers are built once by the caller and reused across sub-games. Each
-sub-game runs a fresh handshake (mutual signed terms, matching the reference/kit which
-re-greet per sub-game) and a fresh runtime. Roles alternate: the natural role on odd
+The transport/servers are built once by the caller and reused across sub-games; each
+sub-game runs a fresh handshake and runtime. Roles alternate: the natural role on odd
 sub-games, the opposite on even ones — so when we are cop the opponent is thief.
 """
 
@@ -17,7 +16,7 @@ from .runtime import SubGameRuntime
 from .scoring import role_for
 from .wire import AuditPayload
 
-_CONSENSUS_TAG = "__consensus__"
+_CONSENSUS_TAG = "series_consensus"  # exact result_claim tag agreed with the peer
 
 
 def identity_for(
@@ -71,22 +70,24 @@ class SeriesResult:
     results_agreed: bool = False  # every sub-game's local vs peer result_claim matched
 
 
-def _exchange_consensus(transport, sender: str, our_sha: str, turn_timeout: float) -> str | None:
-    """Send OUR digest and wait (bounded) for the PEER's over the same final-audit channel, so
-    ``confirmed`` needs a real peer match — never a local hash. A non-participating peer yields
-    ``None`` (confirmed stays false). No new transport is created."""
-    transport.send_audit(AuditPayload(sender, [], _CONSENSUS_TAG, consensus_sha=our_sha).to_wire())
+def _exchange_consensus(transport, our_role, peer_role, our_sha, turn_timeout) -> str | None:
+    """Send OUR digest and (bounded) wait for the PEER's over the final-audit channel. Envelope
+    is the agreed one: sender = OUR wire role, result_claim = ``series_consensus``, records = [].
+    Accept the peer's digest ONLY when its envelope matches EXACTLY; else fail safe (-> None)."""
+    ours = AuditPayload(our_role, [], _CONSENSUS_TAG, consensus_sha=our_sha).to_wire()
+    transport.send_audit(ours)
     deadline = time.monotonic() + min(turn_timeout, 15.0)
     while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        if deadline - time.monotonic() <= 0:
             return None
-        msg = transport.poll_audit(remaining)
+        msg = transport.poll_audit(deadline - time.monotonic())
         if msg is None:
             return None
-        digest = AuditPayload.from_wire(msg).consensus_sha
-        if digest is not None:  # skip any straggler per-sub-game audit; take the digest message
-            return digest
+        peer = AuditPayload.from_wire(msg)
+        if peer.consensus_sha is None:
+            continue  # a straggler per-sub-game audit (no digest): keep draining
+        ok = peer.result_claim == _CONSENSUS_TAG and peer.sender == peer_role and peer.records == []
+        return peer.consensus_sha if ok else None  # wrong envelope -> reject; caller checks SHA eq
 
 
 def run_series(
@@ -131,16 +132,17 @@ def run_series(
             )
         runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
         result.summaries.append(runtime.run(turn_timeout=turn_timeout))
-    # After the series: per-sub-game result agreement, then an explicit digest EXCHANGE so
-    # mutual confirmation needs a real peer SHA match (a locally-computed hash is never enough).
+    # After the series: per-sub-game result agreement, then an explicit peer-digest EXCHANGE.
     theirs = result.peer_identity.get("group_id", "")
     rows = canonical_rows(result.summaries, group, theirs)
     result.consensus_sha = consensus_sha(result.game_id or "", result.game_uid or "", rows)
     result.results_agreed = bool(result.summaries) and all(
         s["audit"].get("result_agreed", False) for s in result.summaries
     )
+    # The consensus envelope uses WIRE ROLES (not group ids): ours is our natural role.
+    peer_role = "thief" if natural_role == "police" else "police"
     result.peer_consensus_sha = _exchange_consensus(
-        transport, group, result.consensus_sha, turn_timeout
+        transport, natural_role, peer_role, result.consensus_sha, turn_timeout
     )
     result.sha_match = (
         result.peer_consensus_sha is not None and result.peer_consensus_sha == result.consensus_sha
