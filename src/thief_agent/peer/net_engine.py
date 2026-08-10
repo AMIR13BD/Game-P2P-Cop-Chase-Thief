@@ -68,11 +68,14 @@ class PeerHalf:
             self.barriers_used += 1
             barrier_placed = [cell[0], cell[1]]
         self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
+        # stay-in-place serializes as the legal move_set token "STAY" (never "STAY:None");
+        # MOVE:<dir> is kept (peers normalize it). Only N/S/E/W/STAY are legal moves.
+        move = "STAY" if act.kind == "STAY" else f"{act.kind}:{act.direction}"
         payload = build_payload(
             self.step,
             self.role,
             f"grid={self.board.size};self={list(self.pos)}",
-            f"{act.kind}:{act.direction}",
+            move,
             "truth",
             hint,
         )
@@ -91,16 +94,18 @@ class PeerHalf:
         }
 
     def hold(self) -> dict:
-        """A HOLD turn: seal the CURRENT (unchanged) position — no move. Used for the caught
-        concession so a caught thief does not step off its cell (reference send_final /
-        MoveType.HOLD semantics)."""
+        """Caught concession: seal the CURRENT (unchanged) position with the legal no-move
+        token STAY. A caught thief does not step off its cell (reference send_final semantics);
+        STAY is the move_set's stay-in-place value, so no illegal 'HOLD:-' ever reaches the
+        wire/audit and no physical movement happens after capture. The claim_response rides
+        the live turn message (SubEngine.concede), matching the book's truth-on-capture rule."""
         self.step += 1
         self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
         payload = build_payload(
             self.step,
             self.role,
             f"grid={self.board.size};self={list(self.pos)}",
-            "HOLD:-",
+            "STAY",
             "truth",
             "",
         )

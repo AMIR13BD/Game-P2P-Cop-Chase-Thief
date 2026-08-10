@@ -24,7 +24,7 @@ def test_caught_concession_holds_position_and_seals_claim_response(commit):
     # HOLD: the thief did NOT move off the caught cell
     assert list(eng.half.pos) == caught_pos
     # the concession is a real sealed HOLD record (no gameplay move)
-    assert eng.half.records[-1]["payload"]["move"] == "HOLD:-"
+    assert eng.half.records[-1]["payload"]["move"] == "STAY"  # legal move_set token, not HOLD:-
     assert eng.half.records[-1]["payload"]["state"].endswith(f"self={caught_pos}")
     assert eng.half.step == step_before + 1  # one final message, not a re-played move loop
     # honest claim_response is delivered on the concession
