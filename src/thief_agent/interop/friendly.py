@@ -77,9 +77,13 @@ def emit_artifacts(out_dir: Path, series, terms: dict, ended: str = "") -> tuple
             )
         )
     result_doc = build_result(gid, guid, ours, theirs, series.summaries, commits)
-    result_doc = enrich_result(
-        result_doc, series.summaries, series.own_identity, series.peer_identity
-    )
+    consensus = {
+        "sha256": series.consensus_sha,
+        "peer_sha256": series.peer_consensus_sha,
+        "sha_match": series.sha_match,
+    }
+    args = (series.summaries, series.own_identity, series.peer_identity, consensus)
+    result_doc = enrich_result(result_doc, *args)
     paths.append(_write(out_dir / f"result_{gid}.json", result_doc))
     return paths, result_doc
 
@@ -128,9 +132,8 @@ def run_friendly(
             game_id=game_id,
         )
     finally:
-        # Keep our MCP server alive until the peer's FINAL submit_audit response has fully
-        # flushed (and its client session drained) before we let the process exit — this is
-        # the fix for peers seeing 502/timeout on the last audit. See PeerServer.stop.
+        # Keep our server alive until the peer's FINAL submit_audit has flushed (fixes the
+        # peer seeing 502/timeout on the last audit). See PeerServer.stop.
         server.stop()
     ended = datetime.now(UTC).isoformat()
     paths, result_doc = emit_artifacts(Path(out_dir), series, terms, ended)

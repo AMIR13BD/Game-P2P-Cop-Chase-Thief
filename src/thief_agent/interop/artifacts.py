@@ -1,8 +1,5 @@
-"""The four official submission artifacts (book App. F table 20): declaration, config,
-log, result — written as canonical bytes, joinable on the shared game_id/game_uid. The
-result's per-sub-game scores and aggregates use the official scoring so two peers' result
-files agree on the cross-team join (kit ``tools/check_artifacts.py``).
-"""
+"""The four official submission artifacts (App. F table 20) — declaration, config, log,
+result — canonical bytes joinable on game_id/game_uid; official scoring so peers agree."""
 
 import hashlib
 
@@ -122,6 +119,9 @@ def _result_rows(summaries, ours, theirs, commits) -> list:
                 "audit": {
                     "log_verified": bool(s["audit"].get("log_verified")),
                     "tampered": bool(s["audit"].get("tampered")),
+                    "local_result_claim": s["audit"].get("local_result_claim"),
+                    "peer_result_claim": s["audit"].get("peer_result_claim"),
+                    "result_agreed": bool(s["audit"].get("result_agreed")),
                 },
             }
         )

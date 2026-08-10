@@ -72,7 +72,7 @@ class SubEngine:
 
     def take_turn(self) -> TurnMessage:
         """Compute+seal one of our turns (via our brain) and build its wire message."""
-        out = self.half.act()
+        out = self.half.act(claim_response=self.pending_response)
         win = {"type": "survival"} if self.survived() else None
         message = TurnMessage(
             step=out["step"],
@@ -92,7 +92,7 @@ class SubEngine:
     def concede(self) -> TurnMessage:
         """Caught: seal a HOLD (no move) and deliver the honest claim_response. A caught
         thief must NOT make another move — it holds its cell and ends the sub-game."""
-        out = self.half.hold()
+        out = self.half.hold(claim_response=self.pending_response)
         message = TurnMessage(
             step=out["step"],
             sender=out["sender"],

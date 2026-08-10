@@ -44,7 +44,7 @@ class PeerHalf:
         b.update(self.recv_scent)
         return b.argmax()
 
-    def act(self) -> dict:
+    def act(self, claim_response: dict | None = None) -> dict:
         self.step += 1
         obs = Observation(
             role=self.role,
@@ -72,6 +72,10 @@ class PeerHalf:
         # it); STAY and a barrier turn (which foregoes movement, book §3.4) both serialize as
         # "STAY" — the barrier is declared SEPARATELY as barrier_placed, never as "BARRIER:*".
         move = f"MOVE:{act.direction}" if act.kind == "MOVE" else "STAY"
+        # SEAL any Cop capture_claim / Thief claim_response the live turn carried (auditable).
+        claim = (
+            list(self.pos) if (self.role == "police" and self.pos == self._belief_peak()) else None
+        )
         payload = build_payload(
             self.step,
             self.role,
@@ -80,11 +84,10 @@ class PeerHalf:
             "truth",
             hint,
             barrier=barrier_placed,
+            capture_claim=claim,
+            claim_response=claim_response,
         )
         self.records.append({"payload": payload, **seal(payload)})
-        claim = (
-            list(self.pos) if (self.role == "police" and self.pos == self._belief_peak()) else None
-        )
         return {
             "step": self.step,
             "sender": self.role,
@@ -95,12 +98,10 @@ class PeerHalf:
             "barrier_placed": barrier_placed,
         }
 
-    def hold(self) -> dict:
-        """Caught concession: seal the CURRENT (unchanged) position with the legal no-move
-        token STAY. A caught thief does not step off its cell (reference send_final semantics);
-        STAY is the move_set's stay-in-place value, so no illegal 'HOLD:-' ever reaches the
-        wire/audit and no physical movement happens after capture. The claim_response rides
-        the live turn message (SubEngine.concede), matching the book's truth-on-capture rule."""
+    def hold(self, claim_response: dict | None = None) -> dict:
+        """Caught concession: seal the CURRENT (unchanged) position with the legal no-move token
+        STAY (never 'HOLD:-'), so no physical movement happens after capture. The truthful
+        ``claim_response`` (caught=true) is SEALED here and also rides the live SubEngine.concede."""
         self.step += 1
         self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
         payload = build_payload(
@@ -110,6 +111,7 @@ class PeerHalf:
             "STAY",
             "truth",
             "",
+            claim_response=claim_response,
         )
         self.records.append({"payload": payload, **seal(payload)})
         return {

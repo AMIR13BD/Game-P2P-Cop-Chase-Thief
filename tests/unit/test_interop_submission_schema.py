@@ -19,7 +19,9 @@ TOP = {
     "timezone",
 }
 LINKS = {"config", "declaration", "github", "log", "result"}
-MA = {"confirmed", "sha256"}
+# reference-required {confirmed, sha256} PLUS the mutual-confirmation evidence both teams
+# agreed to carry (peer digest, whether it matched, and per-series result agreement).
+MA = {"confirmed", "sha256", "peer_sha256", "sha_match", "results_agreed"}
 FINAL = {
     "series_tie",
     "sub_games_won",

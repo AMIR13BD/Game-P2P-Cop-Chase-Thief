@@ -34,14 +34,27 @@ class TurnMessage:
 
 
 def build_payload(
-    step: int, role: str, state: str, move: str, intent: str, hint: str, barrier: list | None = None
+    step: int,
+    role: str,
+    state: str,
+    move: str,
+    intent: str,
+    hint: str,
+    barrier: list | None = None,
+    capture_claim: list | None = None,
+    claim_response: dict | None = None,
 ) -> dict:
     """The sealed record: richer than (state|move|intent|nonce) per book ch5.
 
     ``move`` is always a legal move_set token (N/S/E/W/STAY). A barrier turn foregoes
     movement (book §3.4: "in a turn where the cop foregoes movement, it may place a
     barrier"), so its ``move`` is STAY and the placement is declared SEPARATELY here as
-    ``barrier_placed`` — never encoded as a 'BARRIER:*' move. Absent unless a barrier is set."""
+    ``barrier_placed`` — never encoded as a 'BARRIER:*' move. Absent unless a barrier is set.
+
+    ``capture_claim`` (cop's claimed [r,c]) and ``claim_response`` (thief's truthful
+    {"claim", "caught"}) are SEALED here when the LIVE turn actually carried them, so the
+    capture protocol is auditable from signed evidence — never derived from coordinates.
+    Both are absent unless the real event occurred (identical wire shape otherwise)."""
     payload = {
         "step": step,
         "role": role,
@@ -52,4 +65,8 @@ def build_payload(
     }
     if barrier is not None:
         payload["barrier_placed"] = list(barrier)
+    if capture_claim is not None:
+        payload["capture_claim"] = list(capture_claim)
+    if claim_response is not None:
+        payload["claim_response"] = dict(claim_response)
     return payload

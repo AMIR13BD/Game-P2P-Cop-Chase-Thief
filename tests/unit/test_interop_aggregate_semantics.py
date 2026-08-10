@@ -67,26 +67,31 @@ def test_confirmed_false_the_moment_a_peer_log_fails():
     assert _mutual_clean([]) is False  # no sub-games is not agreement
 
 
-def test_fingerprint_ignores_local_only_fields():
-    # tokens / github_commit / timestamps legitimately differ (or are absent) between peers;
-    # the canonical fingerprint must be invariant to them so both sides still match.
+def test_fingerprint_ignores_steps_and_local_only_fields():
+    # steps / tie / tokens / github_commit / timestamps are NOT in the AGREED preimage, so they
+    # must never change the digest; a real shared fact (game_id/game_uid) DOES change it.
     base = [
         {
             "sub_game_number": 1,
             "result": "survival",
-            "winner_group": "uoh-ay26",
             "roles": {"amireman": "police", "uoh-ay26": "thief"},
             "score": {"amireman": 0, "uoh-ay26": 3},
-            "steps": 35,
+            "winner_group": "uoh-ay26",
         }
     ]
-    fp = _canonical_fingerprint("uid-123", base)
+    fp = _canonical_fingerprint("G002", "uid-123", base)
     noisy = copy.deepcopy(base)
     noisy[0].update(
-        tokens_total=99, github_commit="deadbeef", started_at="2026-01-01T00:00:00", extra=1
+        steps=35,
+        tie=False,
+        tokens_total=99,
+        github_commit="deadbeef",
+        started_at="2026-01-01T00:00:00",
+        extra=1,
     )
-    assert _canonical_fingerprint("uid-123", noisy) == fp  # local-only noise excluded
-    assert _canonical_fingerprint("uid-999", base) != fp  # a real shared-fact change DOES matter
+    assert _canonical_fingerprint("G002", "uid-123", noisy) == fp  # steps + local-only excluded
+    assert _canonical_fingerprint("G002", "uid-999", base) != fp  # game_uid change matters
+    assert _canonical_fingerprint("G003", "uid-123", base) != fp  # game_id change matters
 
 
 def test_survival_steps_equal_threshold_for_both_roles(tmp_path):

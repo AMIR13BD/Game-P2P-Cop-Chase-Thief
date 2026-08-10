@@ -6,7 +6,10 @@ either. Tool argument names mirror the reference exactly: ``negotiate`` /
 ``payload``.
 """
 
+import re
 from dataclasses import asdict, dataclass, field
+
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")  # a consensus digest is EXACTLY 64 lowercase hex chars
 
 
 @dataclass
@@ -42,15 +45,23 @@ class AuditPayload:
 
     sender: str
     records: list
-    result_claim: str  # "capture" | "survival" | "timeout"
+    result_claim: str  # "capture" | "survival" | "timeout" | "__consensus__"
+    consensus_sha: str | None = None  # series-level digest for explicit mutual confirmation
 
     def to_wire(self) -> dict:
-        return asdict(self)
+        # OMIT consensus_sha entirely when None (agreed with the peer) so a strict parser that
+        # does not know the field is never handed an unexpected key.
+        return {k: v for k, v in asdict(self).items() if not (k == "consensus_sha" and v is None)}
 
     @classmethod
     def from_wire(cls, data: dict) -> "AuditPayload":
         known = set(cls.__dataclass_fields__)
-        return cls(**{k: v for k, v in data.items() if k in known})
+        payload = cls(**{k: v for k, v in data.items() if k in known})
+        # When present, a digest MUST be exactly 64 lowercase hex; anything else is rejected
+        # safely (treated as absent) so a malformed value can never drive confirmation.
+        if payload.consensus_sha is not None and not _HEX64.match(str(payload.consensus_sha)):
+            payload.consensus_sha = None
+        return payload
 
 
 @dataclass

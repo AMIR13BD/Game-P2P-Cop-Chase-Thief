@@ -4,11 +4,10 @@
 github_commit are untouched; used for the friendly/demo result export.
 """
 
-import hashlib
 from datetime import datetime, timedelta
 
-from ..domain.crypto import canonical_json
 from . import ids
+from .consensus import consensus_sha
 
 # The reference result's final_result keys — the export is pruned to EXACTLY these so the
 # demo JSON is key-for-key identical to the reference. Scoring still computes every value;
@@ -23,17 +22,10 @@ _REF_FINAL_KEYS = (
 )
 
 
-# Only the mutually-agreed gameplay facts go into the shared fingerprint (never tokens /
-# github_commit / timestamps, which are local-only and may legitimately differ or be absent).
-_CANON_SUB_KEYS = ("sub_game_number", "result", "winner_group", "roles", "score", "steps")
-
-
-def _canonical_fingerprint(game_uid: str, sub_games: list) -> str:
-    canon = {
-        "game_uid": game_uid,
-        "sub_games": [{k: row[k] for k in _CANON_SUB_KEYS if k in row} for row in sub_games],
-    }
-    return hashlib.sha256(canonical_json(canon).encode("utf-8")).hexdigest()
+def _canonical_fingerprint(game_id: str, game_uid: str, sub_games: list) -> str:
+    """OUR side of the AGREED consensus digest over {game_id, game_uid, sub_games}; the shared
+    ``interop.consensus`` builder is the single source of truth (identical bytes on both peers)."""
+    return consensus_sha(game_id, game_uid, sub_games)
 
 
 def _mutual_clean(sub_games: list) -> bool:
@@ -50,8 +42,21 @@ def _ended(started: str, secs) -> str:
         return started or ""
 
 
-def enrich_result(result_doc: dict, summaries: list, own: dict, peer: dict) -> dict:
-    """Augment a built friendly result IN PLACE so its structure matches the reference."""
+def _results_agreed(sub_games: list) -> bool:
+    """True iff EVERY sub-game's local result_claim equalled the peer's (recorded in audit)."""
+    return bool(sub_games) and all(r["audit"].get("result_agreed") for r in sub_games)
+
+
+def enrich_result(
+    result_doc: dict, summaries: list, own: dict, peer: dict, consensus: dict | None = None
+) -> dict:
+    """Augment a built friendly result IN PLACE so its structure matches the reference.
+
+    ``consensus`` carries the SERIES digest exchange (our sha, the peer's received sha, and
+    whether they matched). ``confirmed`` requires ALL of: every peer log verified untampered,
+    every sub-game's result mutually agreed, AND an actually-received peer digest that matches
+    ours — a locally-computed hash alone is never sufficient (book §5.4 mutual sign-off).
+    """
     gid = result_doc["game_id"]
     ours, theirs = result_doc["groups"]
     by_n = {s["sub_game_number"]: s for s in summaries}
@@ -63,18 +68,19 @@ def enrich_result(result_doc: dict, summaries: list, own: dict, peer: dict) -> d
         row["steps"] = s.get("steps", 0)
         row["log_files"] = {ours: ids.log_name(gid, n), theirs: ids.log_name(gid, n)}
     result_doc["links"]["github"] = {ours: own.get("repos", {}), theirs: peer.get("repos", {})}
-    # Mutual agreement (book §5.4) is reached when BOTH peers independently validate the SAME
-    # signed series. Each side computes a CANONICAL fingerprint over only the mutually-agreed
-    # facts — game_uid + per-sub-game number/result/winner/roles/score/steps — deliberately
-    # EXCLUDING local-only fields (tokens, github_commit, timestamps) that legitimately differ
-    # or may be unavailable, so both sides hash byte-identical input. ``confirmed`` reflects
-    # OUR post-mortem verification of the PEER's revealed records (not our own audit of
-    # ourselves): true iff every sub-game's peer log verified untampered. It is never forced —
-    # both reports independently reach confirmed=true with the SAME sha256 only when both
-    # cleanly verified each other, which is exactly the joint sign-off the lecturer compares.
+    c = consensus or {}
+    logs_clean = _mutual_clean(result_doc["sub_games"])
+    results_agreed = _results_agreed(result_doc["sub_games"])
+    sha_match = bool(c.get("sha_match"))
+    local_sha = c.get("sha256") or _canonical_fingerprint(
+        result_doc["game_id"], result_doc["game_uid"], result_doc["sub_games"]
+    )
     result_doc["mutual_agreement"] = {
-        "confirmed": _mutual_clean(result_doc["sub_games"]),
-        "sha256": _canonical_fingerprint(result_doc["game_uid"], result_doc["sub_games"]),
+        "confirmed": logs_clean and results_agreed and sha_match,
+        "sha256": local_sha,
+        "peer_sha256": c.get("peer_sha256"),
+        "sha_match": sha_match,
+        "results_agreed": results_agreed,
     }
     fr = result_doc.get("final_result", {})
     result_doc["final_result"] = {k: fr[k] for k in _REF_FINAL_KEYS if k in fr}

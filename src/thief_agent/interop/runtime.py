@@ -1,8 +1,5 @@
-"""One sub-game over the pushed-turn wire: thief-first, exactly-once processing, an
-own turn-deadline, then the mutual end-of-game audit. The transport/servers are built
-once by the series and reused; a fresh runtime (and brain/board/commit-chain) is built
-per sub-game.
-"""
+"""One sub-game over the pushed-turn wire: thief-first, exactly-once processing, an own
+turn-deadline, then the mutual end-of-game audit (transport/servers reused across sub-games)."""
 
 import time
 
@@ -30,7 +27,6 @@ class SubGameRuntime:
         self.transport = transport
         self.inbox = Inbox(window=4)
         self.role = role
-        self.terms = terms
         self.n = sub_game_number
         self._listen = listener or (lambda event: None)
         self.result: tuple[str, str] | None = None  # (outcome, winner_role)
@@ -102,39 +98,43 @@ class SubGameRuntime:
         self.transport.send_audit(mine.to_wire())
         theirs = self.transport.poll_audit(turn_timeout)
         if theirs is None:
-            return {
-                "passed": False,
-                "log_verified": False,
-                "tampered": False,
-                "verified_steps": 0,
-                "failed_steps": [],
-                "skipped": True,
-            }
-        return self._verify_theirs(AuditPayload.from_wire(theirs).records)
+            return self._missing_audit(outcome)
+        peer = AuditPayload.from_wire(theirs)
+        # Keep the peer's result_claim: agreement needs BOTH to claim the SAME outcome.
+        audit = self._verify_theirs(peer.records)
+        audit["local_result_claim"] = outcome
+        audit["peer_result_claim"] = peer.result_claim
+        audit["result_agreed"] = peer.result_claim == outcome
+        return audit
+
+    @staticmethod
+    def _missing_audit(outcome: str) -> dict:  # no peer audit: unverifiable, not agreed
+        return {
+            "passed": False,
+            "log_verified": False,
+            "tampered": False,
+            "verified_steps": 0,
+            "failed_steps": [],
+            "skipped": True,
+            "local_result_claim": outcome,
+            "peer_result_claim": None,
+            "result_agreed": False,
+        }
 
     def _drain_turns(self) -> None:
-        """Discard any straggler/duplicate turns of THIS sub-game so a fresh next-sub-game
-        inbox (next_step=1) never meets a stale high step. The next sub-game's turns are
-        not sent until after its own handshake, so this cannot drop a live message."""
+        """Discard stragglers/duplicates of THIS sub-game so the next sub-game's fresh inbox
+        never meets a stale high step (its turns are sent only after its own handshake)."""
         while self.transport.poll_turn(0.0) is not None:
             pass
 
     def _finish(self, turn_timeout: float) -> dict:
         outcome, winner = self.result
-        audit = (
-            {
-                "passed": False,
-                "log_verified": False,
-                "tampered": False,
-                "verified_steps": 0,
-                "failed_steps": [],
-                "skipped": True,
-            }
-            if outcome == "timeout"
-            else self._exchange_audit(outcome, turn_timeout)
-        )
+        if outcome == "timeout":
+            audit = self._missing_audit(outcome)
+        else:
+            audit = self._exchange_audit(outcome, turn_timeout)
         self._drain_turns()
-        # Survival length = threshold (max_steps), identical for both peers (not our turn count).
+        # Survival length = threshold (max_steps) for BOTH peers, not our own turn count.
         steps = self.engine.threshold if outcome == "survival" else self.engine.step
         return {
             "sub_game_number": self.n,

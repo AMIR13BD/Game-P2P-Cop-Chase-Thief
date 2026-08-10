@@ -6,13 +6,18 @@ re-greet per sub-game) and a fresh runtime. Roles alternate: the natural role on
 sub-games, the opposite on even ones — so when we are cop the opponent is thief.
 """
 
+import time
 from dataclasses import dataclass, field
 
 from ..shared.sysinfo import system_spec
 from . import DEFAULT_MEMBERS
+from .consensus import canonical_rows, consensus_sha
 from .negotiate import Negotiator
 from .runtime import SubGameRuntime
 from .scoring import role_for
+from .wire import AuditPayload
+
+_CONSENSUS_TAG = "__consensus__"
 
 
 def identity_for(
@@ -25,10 +30,8 @@ def identity_for(
 ) -> dict:
     """This peer's static per-GROUP identity, exchanged in the handshake (roles alternate).
 
-    ``github_commit`` (== ``git_commit_hash``) is the full 40-char ``git rev-parse HEAD``
-    of the code running the game; it rides in the identity (NOT the signed terms) so the
-    peer's declaration binds our real commit. The caller resolves it at the boundary.
-    """
+    ``github_commit`` (== ``git_commit_hash``) is the real 40-char HEAD; it rides in the
+    identity (NOT the signed terms) so the peer's declaration binds our commit."""
     return {
         "group_id": group,
         "group_name": group,
@@ -47,16 +50,9 @@ def identity_for(
 
 
 def mcp_servers_for(public_mcp_url: str | None) -> dict:
-    """Our public MCP address(es) for the negotiated identity, keyed role -> URL.
-
-    One tunnel endpoint serves both roles across the alternating series, so both keys
-    point at the same URL. The value is a RUNTIME input (Cloudflare quick-tunnel
-    hostnames change), never hardcoded. Empty when unset, which preserves the prior
-    wire shape for peers that do not require the field (the official reference, and our
-    own tests). A peer that BUILDS a pre-game declaration — e.g. sharNamr's Cop —
-    refuses a group whose ``mcp_servers`` is empty, so a real cross-team match must
-    pass ``--public-mcp-url``.
-    """
+    """Our public MCP address(es) for the identity, keyed role -> URL (both roles share one
+    tunnel). A RUNTIME input, never hardcoded; empty when unset (preserves the prior wire
+    shape). A peer that builds a pre-game declaration refuses an empty ``mcp_servers``."""
     if not public_mcp_url:
         return {}
     return {"cop": public_mcp_url, "thief": public_mcp_url}
@@ -69,6 +65,28 @@ class SeriesResult:
     peer_identity: dict = field(default_factory=dict)
     game_id: str | None = None
     game_uid: str | None = None
+    consensus_sha: str | None = None  # OUR canonical series digest
+    peer_consensus_sha: str | None = None  # the peer's digest, as actually received (else None)
+    sha_match: bool = False  # peer digest received AND byte-identical to ours
+    results_agreed: bool = False  # every sub-game's local vs peer result_claim matched
+
+
+def _exchange_consensus(transport, sender: str, our_sha: str, turn_timeout: float) -> str | None:
+    """Send OUR digest and wait (bounded) for the PEER's over the same final-audit channel, so
+    ``confirmed`` needs a real peer match — never a local hash. A non-participating peer yields
+    ``None`` (confirmed stays false). No new transport is created."""
+    transport.send_audit(AuditPayload(sender, [], _CONSENSUS_TAG, consensus_sha=our_sha).to_wire())
+    deadline = time.monotonic() + min(turn_timeout, 15.0)
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        msg = transport.poll_audit(remaining)
+        if msg is None:
+            return None
+        digest = AuditPayload.from_wire(msg).consensus_sha
+        if digest is not None:  # skip any straggler per-sub-game audit; take the digest message
+            return digest
 
 
 def run_series(
@@ -86,11 +104,8 @@ def run_series(
 ) -> SeriesResult:
     """Play our side of a whole series against a real opponent.
 
-    ``game_id`` optionally OVERRIDES the locally-derived filename base with a value both
-    teams agreed out-of-band (the book prescribes no game_id format — only that filenames
-    derive from a SHARED game_id, Table 20). ``game_uid`` is ALWAYS the derived cryptographic
-    identifier (verified to match the peer's) and is never overridden.
-    """
+    ``game_id`` optionally OVERRIDES the derived filename base with a peer-agreed value
+    (Table 20); ``game_uid`` is always the derived crypto id and is never overridden."""
     own_identity = own_identity or identity_for(group, github_commit=github_commit)
     result = SeriesResult(own_identity=own_identity)
     known_opponent: str | None = None
@@ -116,4 +131,18 @@ def run_series(
             )
         runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
         result.summaries.append(runtime.run(turn_timeout=turn_timeout))
+    # After the series: per-sub-game result agreement, then an explicit digest EXCHANGE so
+    # mutual confirmation needs a real peer SHA match (a locally-computed hash is never enough).
+    theirs = result.peer_identity.get("group_id", "")
+    rows = canonical_rows(result.summaries, group, theirs)
+    result.consensus_sha = consensus_sha(result.game_id or "", result.game_uid or "", rows)
+    result.results_agreed = bool(result.summaries) and all(
+        s["audit"].get("result_agreed", False) for s in result.summaries
+    )
+    result.peer_consensus_sha = _exchange_consensus(
+        transport, group, result.consensus_sha, turn_timeout
+    )
+    result.sha_match = (
+        result.peer_consensus_sha is not None and result.peer_consensus_sha == result.consensus_sha
+    )
     return result
