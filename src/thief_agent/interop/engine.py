@@ -42,8 +42,17 @@ class SubEngine:
     ):
         flat = to_flat_cfg(terms, seed + 100 + sub_game_number)
         brain = make_gameplay_brain(role, flat["seed"], horizon=terms["max_steps"])
+        # interop/official play emits the league-localizable "compat" scent (max-merge, unique
+        # current-cell peak) so reference-style peers can localize us — emit-only, no strategy change.
         self.half = PeerHalf(
-            role, flat, brain, group, github_commit, peer_signer(group), sub_game_number
+            role,
+            flat,
+            brain,
+            group,
+            github_commit,
+            peer_signer(group),
+            sub_game_number,
+            emission="compat",
         )
         self.role = role
         self.threshold = terms["max_steps"]

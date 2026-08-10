@@ -24,12 +24,15 @@ def _grid_in(d: dict) -> dict:
 
 
 class PeerHalf:
-    def __init__(self, role, cfg, brain, group, github_commit, signer, sub_game=1):
+    def __init__(self, role, cfg, brain, group, github_commit, signer, sub_game=1, emission="spec"):
         self.role, self.cfg, self.brain = role, cfg, brain
         self.board = Board(cfg["grid_size"])
         self.pos = tuple(cfg["cop_start"]) if role == "police" else tuple(cfg["thief_start"])
         self.rho = cfg["pheromone_decay"]
-        self.own_scent = smell.step_update({}, self.pos, self.board, self.rho)
+        # emit-only scent model: "spec" (additive, book formula) or "compat" (max-merge, the
+        # league/reference-localizable field). Never affects our belief/strategy (recv_scent).
+        self._emit = smell.compat_update if emission == "compat" else smell.step_update
+        self.own_scent = self._emit({}, self.pos, self.board, self.rho)
         self.recv_scent: dict = {}
         self.recv_hint = ""
         self.step = 0
@@ -64,7 +67,7 @@ class PeerHalf:
             self.board.add_barrier(cell)
             self.barriers_used += 1
             barrier_placed = [cell[0], cell[1]]
-        self.own_scent = smell.step_update(self.own_scent, self.pos, self.board, self.rho)
+        self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
         payload = build_payload(
             self.step,
             self.role,
@@ -92,7 +95,7 @@ class PeerHalf:
         concession so a caught thief does not step off its cell (reference send_final /
         MoveType.HOLD semantics)."""
         self.step += 1
-        self.own_scent = smell.step_update(self.own_scent, self.pos, self.board, self.rho)
+        self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
         payload = build_payload(
             self.step,
             self.role,

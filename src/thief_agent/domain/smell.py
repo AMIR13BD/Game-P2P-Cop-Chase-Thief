@@ -51,3 +51,20 @@ def step_update(grid: Grid, centre: Cell, board: Board, rho: float) -> Grid:
         if nv > 1e-9:
             out[cell] = nv
     return out
+
+
+def compat_update(grid: Grid, centre: Cell, board: Board, rho: float) -> Grid:
+    """League-interop EMISSION field (emit-only; never used for our own belief/strategy).
+
+    Same radial KERNEL (spec Fig. 4) and multiplicative decay (1-rho) as ``step_update``,
+    but MAX-MERGE instead of additive accumulation: tau_next = max((1-rho)*tau_old, delta).
+    This keeps the emitter's CURRENT cell as the UNIQUE 0.9 peak (only the centre delta is
+    0.9; neighbours <= 0.62; any prior centre has decayed to <= 0.81), so a reference-style
+    Cop can localize the current position instead of a plateau of tied 0.9 cells."""
+    delta = emission_delta(centre, board)
+    out: Grid = {}
+    for cell in set(grid) | set(delta):
+        nv = min(MAX_INTENSITY, max((1.0 - rho) * grid.get(cell, 0.0), delta.get(cell, 0.0)))
+        if nv > 1e-9:
+            out[cell] = nv
+    return out
