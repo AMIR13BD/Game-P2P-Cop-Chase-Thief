@@ -9,7 +9,6 @@ from ..domain.protocol import build_payload
 from ..domain.rules import barrier_cell
 from ..domain.rules import step as step_move
 from ..strategy.base import Observation
-from ..strategy.belief import BeliefMap
 from ..strategy.firewall import enforce
 from ..strategy.hint_filter import sanitize
 from .sealing import make_step0_record
@@ -39,11 +38,6 @@ class PeerHalf:
         self.barriers_used = 0
         self.records = [make_step0_record(group, sub_game, signer, github_commit)]
 
-    def _belief_peak(self):
-        b = BeliefMap(self.board)
-        b.update(self.recv_scent)
-        return b.argmax()
-
     def act(self, claim_response: dict | None = None) -> dict:
         self.step += 1
         obs = Observation(
@@ -72,10 +66,11 @@ class PeerHalf:
         # it); STAY and a barrier turn (which foregoes movement, book §3.4) both serialize as
         # "STAY" — the barrier is declared SEPARATELY as barrier_placed, never as "BARRIER:*".
         move = f"MOVE:{act.direction}" if act.kind == "MOVE" else "STAY"
-        # SEAL any Cop capture_claim / Thief claim_response the live turn carried (auditable).
-        claim = (
-            list(self.pos) if (self.role == "police" and self.pos == self._belief_peak()) else None
-        )
+        # The Cop ALWAYS declares a Capture Claim for its OWN post-move cell — every turn,
+        # including STAY/barrier — with NO belief/scent gating (PDF §3.5 Table 2: the declaration
+        # is the capture). Co-location => the Thief's truthful caught=true ends it; a miss is a
+        # free caught=false. Both the claim and the response are sealed into the signed records.
+        claim = list(self.pos) if self.role == "police" else None
         payload = build_payload(
             self.step,
             self.role,
