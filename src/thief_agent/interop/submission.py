@@ -43,11 +43,13 @@ def enrich_result(result_doc: dict, summaries: list, own: dict, peer: dict) -> d
         row["steps"] = s.get("steps", 0)
         row["log_files"] = {ours: ids.log_name(gid, n), theirs: ids.log_name(gid, n)}
     result_doc["links"]["github"] = {ours: own.get("repos", {}), theirs: peer.get("repos", {})}
-    clean = bool(result_doc["sub_games"]) and all(
-        r["audit"]["log_verified"] and not r["audit"]["tampered"] for r in result_doc["sub_games"]
-    )
+    # Mutual agreement is a JOINT property (book §5.4): it is true only when BOTH peers
+    # independently validate the SAME signed series. One team cannot assert it, so a
+    # unilaterally-generated friendly/demo report NEVER forces confirmed=true from our own
+    # clean audit — it stays False until a real two-peer confirmation exchange proves it.
+    # sha256 is our aggregate's fingerprint, published for the peer to compare against theirs.
     result_doc["mutual_agreement"] = {
-        "confirmed": clean,
+        "confirmed": False,
         "sha256": hashlib.sha256(
             canonical_json({"sub_games": result_doc["sub_games"]}).encode("utf-8")
         ).hexdigest(),

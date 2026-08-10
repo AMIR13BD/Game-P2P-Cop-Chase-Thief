@@ -134,12 +134,14 @@ class SubGameRuntime:
             else self._exchange_audit(outcome, turn_timeout)
         )
         self._drain_turns()
+        # Survival length = threshold (max_steps), identical for both peers (not our turn count).
+        steps = self.engine.threshold if outcome == "survival" else self.engine.step
         return {
             "sub_game_number": self.n,
             "role": self.role,
             "result": outcome,
             "winner": winner,
-            "steps": self.engine.step,
+            "steps": steps,
             "records": self.engine.records,
             "audit": audit,
             "started_at": self.started_at,
