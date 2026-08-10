@@ -46,6 +46,7 @@ def _friendly(args) -> int:
         seed=args.seed,
         turn_timeout=args.turn_timeout,
         public_mcp_url=args.public_mcp_url or None,
+        game_id=args.game_id or None,
         listener=lambda e: print(f"  [{e.get('type')}] {e}") if args.verbose else None,
     )
     print(f"\n  game_id  {result.game_id}\n  game_uid {result.game_uid}")
@@ -107,20 +108,25 @@ def build_parser() -> argparse.ArgumentParser:
         "declaration (e.g. sharNamr). Runtime value — never hardcoded.",
     )
     p.add_argument("--out", default="runs/interop")
+    p.add_argument(
+        "--game-id",
+        dest="game_id",
+        default=None,
+        help="game_id AGREED WITH THE PEER out-of-band as the artifact filename base (e.g. "
+        "'G002'); omit to derive '<groupA>-vs-<groupB>' locally. game_uid is always derived.",
+    )
     p.add_argument("--games", type=int, default=6)
     p.add_argument("--seed", type=int, default=1234)
     p.add_argument(
         "--commit",
         default=None,
-        help="github_commit for the audit Step-0 record; default is the real "
-        "`git rev-parse HEAD` (full 40-char SHA)",
+        help="github_commit for the audit Step-0 record; default is the real HEAD SHA",
     )
     p.add_argument("--turn-timeout", type=float, default=180.0)
     p.add_argument(
         "--counted",
         action="store_true",
-        help="OFFICIAL: same friendly transport/flow; after a clean final audit, auto-email "
-        "the ONE result JSON to the lecturer (rmisegal+uoh26finalgame@gmail.com).",
+        help="OFFICIAL: same friendly flow; after a clean final audit, email the result JSON",
     )
     p.add_argument(
         "--demo-email-recipient",

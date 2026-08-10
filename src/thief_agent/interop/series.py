@@ -82,8 +82,15 @@ def run_series(
     seed: int = 1234,
     listener=None,
     turn_timeout: float = 180.0,
+    game_id: str | None = None,
 ) -> SeriesResult:
-    """Play our side of a whole series against a real opponent."""
+    """Play our side of a whole series against a real opponent.
+
+    ``game_id`` optionally OVERRIDES the locally-derived filename base with a value both
+    teams agreed out-of-band (the book prescribes no game_id format — only that filenames
+    derive from a SHARED game_id, Table 20). ``game_uid`` is ALWAYS the derived cryptographic
+    identifier (verified to match the peer's) and is never overridden.
+    """
     own_identity = own_identity or identity_for(group, github_commit=github_commit)
     result = SeriesResult(own_identity=own_identity)
     known_opponent: str | None = None
@@ -94,7 +101,7 @@ def run_series(
             negotiator.signed(role, n, opponent_group=known_opponent).to_wire()
         )
         agreed = negotiator.verify_peer(peer_msg)
-        result.game_id, result.game_uid = agreed.game_id, agreed.game_uid
+        result.game_id, result.game_uid = game_id or agreed.game_id, agreed.game_uid
         known_opponent = agreed.opponent_group
         result.peer_identity = agreed.opponent_identity or result.peer_identity
         if listener is not None:

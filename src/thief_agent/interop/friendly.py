@@ -101,6 +101,7 @@ def run_friendly(
     identity: dict | None = None,
     public_mcp_url: str | None = None,
     listener=None,
+    game_id: str | None = None,
 ) -> FriendlyResult:
     """Stand up our server, dial the opponent, play a full friendly series, write artifacts.
 
@@ -124,6 +125,7 @@ def run_friendly(
             seed=seed,
             listener=listener,
             turn_timeout=turn_timeout,
+            game_id=game_id,
         )
     finally:
         # Keep our MCP server alive until the peer's FINAL submit_audit response has fully
