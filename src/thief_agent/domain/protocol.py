@@ -33,9 +33,16 @@ class TurnMessage:
     win_claim: dict | None = None
 
 
-def build_payload(step: int, role: str, state: str, move: str, intent: str, hint: str) -> dict:
-    """The sealed record: richer than (state|move|intent|nonce) per book ch5."""
-    return {
+def build_payload(
+    step: int, role: str, state: str, move: str, intent: str, hint: str, barrier: list | None = None
+) -> dict:
+    """The sealed record: richer than (state|move|intent|nonce) per book ch5.
+
+    ``move`` is always a legal move_set token (N/S/E/W/STAY). A barrier turn foregoes
+    movement (book §3.4: "in a turn where the cop foregoes movement, it may place a
+    barrier"), so its ``move`` is STAY and the placement is declared SEPARATELY here as
+    ``barrier_placed`` — never encoded as a 'BARRIER:*' move. Absent unless a barrier is set."""
+    payload = {
         "step": step,
         "role": role,
         "state": state,
@@ -43,3 +50,6 @@ def build_payload(step: int, role: str, state: str, move: str, intent: str, hint
         "intent": intent,
         "hint": hint,
     }
+    if barrier is not None:
+        payload["barrier_placed"] = list(barrier)
+    return payload

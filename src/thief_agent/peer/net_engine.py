@@ -68,9 +68,10 @@ class PeerHalf:
             self.barriers_used += 1
             barrier_placed = [cell[0], cell[1]]
         self.own_scent = self._emit(self.own_scent, self.pos, self.board, self.rho)
-        # stay-in-place serializes as the legal move_set token "STAY" (never "STAY:None");
-        # MOVE:<dir> is kept (peers normalize it). Only N/S/E/W/STAY are legal moves.
-        move = "STAY" if act.kind == "STAY" else f"{act.kind}:{act.direction}"
+        # Only N/S/E/W/STAY are legal move tokens. A MOVE keeps "MOVE:<dir>" (peers normalize
+        # it); STAY and a barrier turn (which foregoes movement, book §3.4) both serialize as
+        # "STAY" — the barrier is declared SEPARATELY as barrier_placed, never as "BARRIER:*".
+        move = f"MOVE:{act.direction}" if act.kind == "MOVE" else "STAY"
         payload = build_payload(
             self.step,
             self.role,
@@ -78,6 +79,7 @@ class PeerHalf:
             move,
             "truth",
             hint,
+            barrier=barrier_placed,
         )
         self.records.append({"payload": payload, **seal(payload)})
         claim = (
