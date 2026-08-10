@@ -84,11 +84,12 @@ def test_spec_emission_unchanged_and_differs_from_compat():
     assert compat_peaks == [(5, 6)]  # compat: single current-cell peak
 
 
-def test_subengine_emits_compat_peaked_scent_at_current_state(commit):
-    """Current-turn emitted scent corresponds to the current-turn sealed position."""
+def test_subengine_emits_spec_additive_scent_not_compat_beacon(commit):
+    """Adversarial interop MUST emit the spec/additive field (emit-only), NOT the compat
+    'unique current-cell peak' beacon that exposed our exact position (the 0-6 regression).
+    The compat function stays available and tested above, but the live engine never emits it."""
     eng = SubEngine("thief", default_terms(max_steps=10), DEFAULT_GROUP_ID, commit, 1)
+    assert eng.half._emit is smell.step_update  # spec emission
+    assert eng.half._emit is not smell.compat_update  # never the position-leaking beacon
     msg = eng.take_turn()
-    peak = max(msg.smell_grid.items(), key=lambda kv: kv[1])
-    guess = tuple(int(x) for x in peak[0].split(","))
-    assert guess == eng.half.pos  # emitted peak == our true current cell (no stale position)
-    assert peak[1] == 0.9
+    assert msg.smell_grid  # a real non-empty emitted field over our board

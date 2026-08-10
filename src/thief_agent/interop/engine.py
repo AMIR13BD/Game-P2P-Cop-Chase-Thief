@@ -42,8 +42,9 @@ class SubEngine:
     ):
         flat = to_flat_cfg(terms, seed + 100 + sub_game_number)
         brain = make_gameplay_brain(role, flat["seed"], horizon=terms["max_steps"])
-        # interop/official play emits the league-localizable "compat" scent (max-merge, unique
-        # current-cell peak) so reference-style peers can localize us — emit-only, no strategy change.
+        # Emit the spec/additive scent (book Fig. 4) — the SAME field we use internally, never a
+        # max-merge "unique current-cell peak". The compat beacon exposed our exact position to an
+        # adversarial peer (self-inflicted 0-6 regression); spec keeps us legally hard to localize.
         self.half = PeerHalf(
             role,
             flat,
@@ -52,7 +53,7 @@ class SubEngine:
             github_commit,
             peer_signer(group),
             sub_game_number,
-            emission="compat",
+            emission="spec",
         )
         self.role = role
         self.threshold = terms["max_steps"]
