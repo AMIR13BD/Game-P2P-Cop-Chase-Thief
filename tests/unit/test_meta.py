@@ -37,7 +37,9 @@ def test_meta_logs_strategy_and_reason():
     mc = MetaController("thief", make_rng(5))
     mc.decide(_obs("thief"))
     entry = mc.log[-1]
-    assert entry["strategy"] in {"distance", "escape", "evade", "entropy", "endgame", "hybrid"}
+    assert entry["strategy"] in {
+        "distance", "escape", "evade", "entropy", "endgame", "hybrid", "survivor"
+    }
     assert isinstance(entry["reason"], str) and entry["reason"]
     assert entry["fallback"] is False
 
@@ -65,10 +67,10 @@ def test_controlled_exploration_bounded_and_logged():
     assert all(e["explored"] for e in mc.log)
 
 
-def test_thief_prefers_escape_when_safe():
+def test_thief_selects_survivor():
     mc = MetaController("thief", make_rng(2), horizon=35, epsilon=0.0)
-    name, _reason, _ = mc.select(_obs("thief", step=33))  # safe open board -> distance+mobility
-    assert name == "escape"
+    name, _reason, _ = mc.select(_obs("thief", step=33))  # safety-constrained mobility evader
+    assert name == "survivor"
 
 
 def test_police_prefers_barrier_when_budget_remains():

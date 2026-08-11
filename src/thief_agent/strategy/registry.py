@@ -3,6 +3,7 @@ meta-controller (P16) for selection and by the evaluation harness (P12) for
 round-robin comparison. A single source of truth avoids duplicated wiring."""
 
 from .police_barrier import BarrierBrain
+from .police_contain import ContainBrain
 from .police_greedy import PoliceGreedyBrain
 from .police_herding import HerdBrain
 from .police_hybrid import PoliceHybridBrain
@@ -14,6 +15,7 @@ from .thief_entropy import EntropyBrain
 from .thief_escape import EscapeBrain
 from .thief_evade import EvadeBrain
 from .thief_hybrid import ThiefHybridBrain
+from .thief_survivor import SurvivorBrain
 
 POLICE_PORTFOLIO = {
     "greedy": PoliceGreedyBrain,
@@ -21,6 +23,7 @@ POLICE_PORTFOLIO = {
     "barrier": BarrierBrain,
     "herd": HerdBrain,
     "hybrid": PoliceHybridBrain,
+    "contain": ContainBrain,
 }
 THIEF_PORTFOLIO = {
     "distance": ThiefDistanceBrain,
@@ -30,6 +33,7 @@ THIEF_PORTFOLIO = {
     "endgame": EndgameBrain,
     "hybrid": ThiefHybridBrain,
     "decorner": DecornerBrain,
+    "survivor": SurvivorBrain,
 }
 
 

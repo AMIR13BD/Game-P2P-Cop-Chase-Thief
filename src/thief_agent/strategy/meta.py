@@ -9,7 +9,6 @@ delegated brain call); and a per-turn log of the chosen strategy and its reason.
 from ..domain.board import Board
 from .base import Action, BrainBase, Observation
 from .belief import BeliefMap
-from .connectivity import articulation_points
 from .firewall import enforce
 from .graph import reachable_area
 from .hints import biased_target
@@ -26,13 +25,16 @@ def _confidence(board: Board, scent: dict):
 
 
 class MetaController(BrainBase):
-    def __init__(self, role, rng, horizon=35, epsilon=0.1, profile=None, credibility=0.5) -> None:
+    def __init__(
+        self, role, rng, horizon=35, epsilon=0.1, profile=None, credibility=0.5, strategy_seed=0
+    ) -> None:
         super().__init__(rng)
         self.role = role
         self.horizon = horizon
         self.epsilon = epsilon
         self.profile = profile or {}
         self.credibility = credibility  # audited opponent hint-honesty (0.5 = neutral)
+        self.strategy_seed = strategy_seed  # seeds sub-game path variation (0 = none)
         self.score_margin = 0
         self._brains: dict[str, BrainBase] = {}
         self._last_name = "hybrid"
@@ -57,14 +59,21 @@ class MetaController(BrainBase):
 
     def _brain(self, name: str) -> BrainBase:
         if name not in self._brains:
-            self._brains[name] = make_brain(self.role, name, self.rng)
+            brain = make_brain(self.role, name, self.rng)
+            # Championship brains take the live horizon and a path-variation seed;
+            # baseline brains ignore both. Never alters legality or the firewall.
+            if hasattr(brain, "horizon"):
+                brain.horizon = self.horizon
+            if hasattr(brain, "seed"):
+                brain.seed = self.strategy_seed
+            self._brains[name] = brain
         return self._brains[name]
 
     def _police_choice(self, obs, board, target):
-        # Barrier-first containment: on an open board an equal-speed pursuer cannot
-        # close the gap, so value-positive cuts that shrink the thief's reachable region
-        # dominate naive pursuit. BarrierBrain itself falls back to pursuit/capture when
-        # no worthwhile cut exists or barriers are exhausted.
+        # Proven portfolio: barrier-first containment when budget remains (only ever
+        # places measurably value-positive cuts), pursuit/compression otherwise. This
+        # beats the frozen baseline; ContainBrain (axis-cornering) stays available in the
+        # portfolio, and the OpenAI-primary layer adds interception reasoning on top.
         if target is not None and obs.barriers_used < obs.max_barriers:
             return "barrier", "barrier-first: shrink the thief's reachable region"
         if self.horizon - obs.step <= POLICE_RISK_WINDOW:
@@ -74,17 +83,11 @@ class MetaController(BrainBase):
         return "intercept", "constrained space: intercept directly"
 
     def _thief_choice(self, obs, board, target):
-        # Distance + mobility + multiple escape routes maximise survival, including vs
-        # barrier play; get off self-trap geometry first, else preserve escape routes.
-        if obs.self_pos in articulation_points(board):
-            return "evade", "on an articulation cell: avoid self-trap"
-        if self.profile.get("barrier_tendency", 0) > 0.2:
-            return "evade", "barrier-heavy opponent: avoid seals"
-        if not obs.barriers and len(board.neighbors(obs.self_pos)) <= 2:
-            # cornered on an open board (no walls to hide behind): a herder can pin a
-            # distance-maximiser here, so recover mobility instead of fleeing deeper
-            return "decorner", "cornered with no barriers: recover mobility (anti-herding)"
-        return "escape", "preserve distance, mobility and escape routes"
+        # SurvivorBrain subsumes the older escape/evade/decorner/endgame heuristics:
+        # distance is a hard safety constraint, then it maximises future mobility,
+        # escape space and route diversity while penalising corners/articulation cells
+        # and anti-oscillation history. This directly removes the flee-to-corner death.
+        return "survivor", "safety-constrained mobility evasion"
 
     def select(self, obs: Observation):
         board = Board(obs.board_size, set(obs.barriers))

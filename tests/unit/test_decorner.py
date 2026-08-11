@@ -23,20 +23,25 @@ def _obs(pos, barriers=frozenset()):
     )
 
 
-def test_thief_decorners_when_cornered_no_barriers():
+def test_thief_selects_survivor_when_cornered():
     mc = MetaController("thief", make_rng(1), horizon=35, epsilon=0.0)
-    assert mc.select(_obs((0, 0)))[0] == "decorner"  # corner cell (degree 2), empty board
+    # SurvivorBrain subsumes decorner: its trap filter + mobility terms handle a corner.
+    assert mc.select(_obs((0, 0)))[0] == "survivor"
 
 
-def test_thief_escapes_when_not_cornered():
+def test_thief_selects_survivor_in_interior():
     mc = MetaController("thief", make_rng(1), horizon=35, epsilon=0.0)
-    assert mc.select(_obs((3, 3)))[0] == "escape"  # interior cell
+    assert mc.select(_obs((3, 3)))[0] == "survivor"
 
 
-def test_decorner_not_selected_when_barriers_present():
-    mc = MetaController("thief", make_rng(1), horizon=35, epsilon=0.0)
-    # cornered but walls exist -> stay barrier-aware (escape), do not decorner
-    assert mc.select(_obs((0, 0), barriers=frozenset({(3, 3)})))[0] == "escape"
+def test_survivor_climbs_out_of_corner_legally():
+    # Behavioural guarantee preserved: from a corner the thief moves to more mobility.
+    from thief_agent.strategy.thief_survivor import SurvivorBrain
+
+    board = Board(7)
+    obs = _obs((0, 0))
+    act = SurvivorBrain(make_rng(1), horizon=35).decide(obs)
+    assert is_legal(act, obs, board, "thief") and act.kind == "MOVE"
 
 
 def test_decorner_moves_out_of_corner_legally():

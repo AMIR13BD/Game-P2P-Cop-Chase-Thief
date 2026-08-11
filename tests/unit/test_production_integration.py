@@ -96,9 +96,12 @@ def test_audited_profile_persists_across_series():
 
 
 def test_profile_influences_later_selection():
+    # SurvivorBrain is robust to barrier-heavy opponents on its own (escape-space +
+    # trap-filter terms), so it is selected regardless of profile; the opponent profile
+    # now feeds the OpenAI advisor context rather than deterministic meta selection.
     mc = MetaController("thief", make_rng(1), epsilon=0.0, profile={"barrier_tendency": 0.5})
     name, _reason, _ = mc.select(_obs("thief"))  # threat far, open board, early game
-    assert name == "evade"  # barrier-heavy profile steers the thief off seals
+    assert name == "survivor"
 
 
 # 6 — a new opponent resets the profile

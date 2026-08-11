@@ -36,7 +36,7 @@ def test_baseline_encodes_frozen_rules():
 
 def test_candidate_selection_differs():
     ct = MetaController("thief", make_rng(2), horizon=35, epsilon=0.0)
-    assert ct.select(_obs("thief", step=33))[0] == "escape"  # candidate thief
+    assert ct.select(_obs("thief", step=33))[0] == "survivor"  # candidate thief
     cp = MetaController("police", make_rng(2), horizon=35, epsilon=0.0)
     assert cp.select(_obs("police", step=3))[0] == "barrier"  # candidate police
 
