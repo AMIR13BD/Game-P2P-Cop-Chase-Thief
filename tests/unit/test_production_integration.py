@@ -130,3 +130,12 @@ def test_credible_hint_biases_legal_decision():
     assert biased is not None and is_legal(biased, obs, board, "police")
     mc.decide(obs)
     assert mc.log[-1]["strategy"] == "hint_biased"
+
+
+def test_police_specialist_env_opt_in(monkeypatch):
+    # Default: robust portfolio (MetaController). Opt-in: ContainBrain, police only.
+    monkeypatch.delenv("POLICE_STRATEGY", raising=False)
+    assert make_gameplay_brain("police", 1).__class__.__name__ == "MetaController"
+    monkeypatch.setenv("POLICE_STRATEGY", "contain")
+    assert make_gameplay_brain("police", 1).__class__.__name__ == "ContainBrain"
+    assert make_gameplay_brain("thief", 1).__class__.__name__ == "MetaController"  # thief unaffected

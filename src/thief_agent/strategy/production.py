@@ -27,6 +27,20 @@ def advisor_policy() -> str | None:
     return pol if pol in ("A", "B", "C") else "C"
 
 
+def police_specialist(seed, horizon):
+    """Optional SPECIALISED police strategy from POLICE_STRATEGY (robust default = None).
+
+    `contain` selects ContainBrain (shortest-path + Chebyshev edge-cornering + value-gated
+    barriers). Measured to capture the current uoh-ay26 thief far more (~0.47 -> ~0.79) and
+    to score >= the portfolio in the exact six-game series, but it is LESS robust vs pure
+    corner-hugging evaders, so it is a per-match opt-in, never the default (avoids overfit)."""
+    if os.environ.get("POLICE_STRATEGY", "").strip().lower() != "contain":
+        return None
+    from .police_contain import ContainBrain
+
+    return ContainBrain(make_rng(seed), horizon=horizon, seed=seed)
+
+
 def production_brain(role, seed, horizon=DEFAULT_HORIZON, profile=None, credibility=0.5):
     """Adaptive MetaController for `role`, deterministic and firewall-guarded."""
     mc = MetaController(
@@ -52,6 +66,10 @@ def make_gameplay_brain(
     deterministic play whenever the key/API is unavailable."""
     if baseline:
         return baseline_brain(role, seed)
+    if role == "police":
+        specialist = police_specialist(seed, horizon)
+        if specialist is not None:
+            return specialist
     policy = advisor_policy()
     if policy is not None:
         from .ai_brain import AIPrimaryBrain
