@@ -1,6 +1,6 @@
 {
   "schema_version": "1.2",
-  "agreed_between": ["amireman", "saedshki"],
+  "agreed_between": ["amireman", "sharNamr"],
   "board_and_agents": {
     "grid_size": 7,
     "num_agents": 2,
