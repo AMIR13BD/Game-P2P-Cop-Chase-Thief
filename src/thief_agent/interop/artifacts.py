@@ -115,7 +115,10 @@ def _result_rows(summaries, ours, theirs, commits) -> list:
                 "winner_group": (ours if so > st else (theirs if st > so else None)),
                 "tie": is_tie_row(outcome, so, st),
                 "tokens": {ours: 0, theirs: 0},
-                "github_commit": {ours: commits.get(ours, ""), theirs: commits.get(theirs, "")},
+                "github_commit": {
+                    ours: commits.get(ours, ""),
+                    theirs: s.get("peer_github_commit") or commits.get(theirs, ""),
+                },
                 "audit": {
                     "log_verified": bool(s["audit"].get("log_verified")),
                     "tampered": bool(s["audit"].get("tampered")),

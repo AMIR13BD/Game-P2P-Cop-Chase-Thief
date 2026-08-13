@@ -5,6 +5,7 @@ sub-game runs a fresh handshake and runtime. Roles alternate: the natural role o
 sub-games, the opposite on even ones — so when we are cop the opponent is thief.
 """
 
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -17,6 +18,21 @@ from .scoring import role_for
 from .wire import AuditPayload
 
 _CONSENSUS_TAG = "series_consensus"  # exact result_claim tag agreed with the peer
+_HEX40 = re.compile(r"[0-9a-fA-F]{40}")
+
+
+def _peer_commit(identity: dict) -> str:
+    """The peer's runtime SHA for THIS sub-game, from its negotiated identity. Prefer
+    ``github_commit``, else ``git_commit_hash``; return the first that is a 40-char hex,
+    otherwise "" (the existing schema's safe empty). Reporting-only: never used in the
+    canonical consensus (which excludes github_commit)."""
+    if not isinstance(identity, dict):
+        return ""
+    for key in ("github_commit", "git_commit_hash"):
+        val = str(identity.get(key) or "").strip()
+        if _HEX40.fullmatch(val):
+            return val
+    return ""
 
 
 def identity_for(
@@ -130,8 +146,11 @@ def run_series(
                     "game_uid": agreed.game_uid,
                 }
             )
+        peer_commit = _peer_commit(agreed.opponent_identity)  # THIS sub-game's peer runtime SHA
         runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
-        result.summaries.append(runtime.run(turn_timeout=turn_timeout))
+        summary = runtime.run(turn_timeout=turn_timeout)
+        summary["peer_github_commit"] = peer_commit  # persist per sub-game (reporting only)
+        result.summaries.append(summary)
     # After the series: per-sub-game result agreement, then an explicit peer-digest EXCHANGE.
     theirs = result.peer_identity.get("group_id", "")
     rows = canonical_rows(result.summaries, group, theirs)
