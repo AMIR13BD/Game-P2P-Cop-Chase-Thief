@@ -31,6 +31,9 @@ class McpTransport:
         env: dict | None = None,
         connect_timeout: float = 60.0,
         retry_interval: float = 1.0,
+        agreement_timeout: float = 300.0,
+        resend_interval: float = 3.0,
+        resend_timeout: float = 15.0,
     ):
         self._url = opponent_url
         self._inboxes = inboxes
@@ -39,6 +42,13 @@ class McpTransport:
             self._headers["Authorization"] = f"Bearer {token}"
         self._connect_timeout = connect_timeout
         self._retry = retry_interval
+        # The per-sub-game handshake is MUTUAL, not a single POST: keep re-sending our
+        # SAME offer until we have also received the peer's offer for this sub-game, so a
+        # peer router that swaps the active role-agent between sub-games (old agent accepts
+        # + acks our offer, then exits before the new agent sees it) cannot drop our offer.
+        self._agreement_timeout = agreement_timeout
+        self._resend_interval = resend_interval
+        self._resend_timeout = resend_timeout
 
     def _call(self, tool: str, argument: dict) -> None:
         key = "payload" if tool == "submit_audit" else "message"
@@ -61,12 +71,43 @@ class McpTransport:
                     raise NetworkError(f"opponent MCP unreachable at {self._url}: {exc}") from exc
                 time.sleep(self._retry)
 
+    def _send_offer(self, signed: dict) -> None:
+        """(Re)send our SAME negotiate offer, best-effort. Transient HTTP 502 /
+        connection-refused are still retried inside ``_call_with_retry``; a peer that
+        stays unreachable is swallowed here so the mutual loop keeps trying until its own
+        overall deadline rather than aborting on one failed (re)send."""
+        with contextlib.suppress(NetworkError):
+            self._call_with_retry("negotiate", signed, timeout=self._resend_timeout)
+
     def exchange_agreement(self, signed: dict) -> dict:
-        self._call_with_retry("negotiate", signed)
-        try:
-            return self._inboxes.agreements.get(timeout=self._connect_timeout)
-        except queue.Empty as exc:
-            raise NetworkError("opponent never sent its agreement") from exc
+        """MUTUAL per-sub-game handshake. A single successful POST is NOT sufficient: the
+        peer's router may swap the active role-agent between sub-games, so an old agent can
+        accept + ack our offer and then exit before the new agent ever sees it. We keep
+        re-sending the IDENTICAL offer (same nonce / identity / terms — never regenerated on
+        a retry) until we have ALSO received the peer's offer for THIS sub-game, then re-send
+        once more so the peer's currently-active agent definitely holds it. Bounded by
+        ``agreement_timeout`` (no infinite hang); duplicate offers are idempotent because the
+        receiving server only enqueues them."""
+        want = signed.get("sub_game_number")
+        deadline = time.time() + self._agreement_timeout
+        received: dict | None = None
+        while received is None:
+            self._send_offer(signed)  # (re)send; a swap may have dropped the previous one
+            try:
+                msg = self._inboxes.agreements.get(timeout=self._resend_interval)
+            except queue.Empty:
+                if time.time() >= deadline:
+                    raise NetworkError("opponent never sent its agreement")
+                continue
+            if (
+                want is not None
+                and isinstance(msg, dict)
+                and msg.get("sub_game_number") not in (None, want)
+            ):
+                continue  # a straggler offer for a different sub-game: skip, keep waiting
+            received = msg
+        self._send_offer(signed)  # mutual: one more so the peer's CURRENT agent holds our offer
+        return received
 
     def send_turn(self, message: dict) -> None:
         self._call_with_retry("receive_turn", message)
