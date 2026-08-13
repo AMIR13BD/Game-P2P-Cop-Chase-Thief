@@ -1,6 +1,6 @@
 {
   "schema_version": "1.2",
-  "agreed_between": ["amireman", "sharNamr"],
+  "agreed_between": ["amireman", "ahk-yosi"],
   "board_and_agents": {
     "grid_size": 7,
     "num_agents": 2,
