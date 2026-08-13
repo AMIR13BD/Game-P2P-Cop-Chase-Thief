@@ -34,11 +34,16 @@ def police_specialist(seed, horizon):
     barriers). Measured to capture the current uoh-ay26 thief far more (~0.47 -> ~0.79) and
     to score >= the portfolio in the exact six-game series, but it is LESS robust vs pure
     corner-hugging evaders, so it is a per-match opt-in, never the default (avoids overfit)."""
-    if os.environ.get("POLICE_STRATEGY", "").strip().lower() != "contain":
-        return None
-    from .police_contain import ContainBrain
+    strat = os.environ.get("POLICE_STRATEGY", "").strip().lower()
+    if strat == "contain":
+        from .police_contain import ContainBrain
 
-    return ContainBrain(make_rng(seed), horizon=horizon, seed=seed)
+        return ContainBrain(make_rng(seed), horizon=horizon, seed=seed)
+    if strat == "contain_bayes":  # EXPERIMENTAL: ContainBrain chase + Bayesian localisation
+        from .police_contain_bayes import ContainBayesBrain
+
+        return ContainBayesBrain(make_rng(seed), horizon=horizon, seed=seed)
+    return None
 
 
 def production_brain(role, seed, horizon=DEFAULT_HORIZON, profile=None, credibility=0.5):
