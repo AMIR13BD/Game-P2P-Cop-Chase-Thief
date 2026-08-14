@@ -9,9 +9,11 @@ import re
 import time
 from dataclasses import dataclass, field
 
+from ..exceptions import NetworkError
 from ..shared.sysinfo import system_spec
 from . import DEFAULT_MEMBERS
 from .consensus import canonical_rows, consensus_sha
+from .engine import _now_iso
 from .negotiate import Negotiator
 from .runtime import SubGameRuntime
 from .scoring import role_for
@@ -106,6 +108,29 @@ def _exchange_consensus(transport, our_role, peer_role, our_sha, turn_timeout) -
         return peer.consensus_sha if ok else None  # wrong envelope -> reject; caller checks SHA eq
 
 
+def _dropped_summary(n: int, role: str, runtime) -> dict:
+    """A sub-game whose TRANSPORT failed (peer/tunnel unreachable): recorded as a timeout --
+    NEVER a fabricated capture/survival -- so the series continues and the peer can recover for
+    later sub-games instead of the whole run crashing on one send/handshake failure."""
+    return {
+        "sub_game_number": n,
+        "role": role,
+        "result": "timeout",
+        "winner": role,
+        "steps": runtime.engine.step if runtime is not None else 0,
+        "records": runtime.engine.records if runtime is not None else [],
+        "audit": {
+            "passed": False, "log_verified": False, "tampered": False, "verified_steps": 0,
+            "failed_steps": [], "skipped": True, "local_result_claim": "timeout",
+            "peer_result_claim": None, "result_agreed": False,
+        },
+        "started_at": _now_iso(),
+        "duration_seconds": 0.0,
+        "tokens_total": 0,
+        "peer_github_commit": "",
+    }
+
+
 def run_series(
     terms: dict,
     natural_role: str,
@@ -128,28 +153,32 @@ def run_series(
     known_opponent: str | None = None
     for n in range(1, num_games + 1):
         role = role_for(natural_role, n)
-        negotiator = Negotiator(terms, own_identity, group)
-        peer_msg = transport.exchange_agreement(
-            negotiator.signed(role, n, opponent_group=known_opponent).to_wire()
-        )
-        agreed = negotiator.verify_peer(peer_msg)
-        result.game_id, result.game_uid = game_id or agreed.game_id, agreed.game_uid
-        known_opponent = agreed.opponent_group
-        result.peer_identity = agreed.opponent_identity or result.peer_identity
-        if listener is not None:
-            listener(
-                {
-                    "type": "negotiated",
-                    "sub_game": n,
-                    "role": role,
-                    "game_id": agreed.game_id,
-                    "game_uid": agreed.game_uid,
-                }
+        runtime = None
+        try:
+            negotiator = Negotiator(terms, own_identity, group)
+            peer_msg = transport.exchange_agreement(
+                negotiator.signed(role, n, opponent_group=known_opponent).to_wire()
             )
-        peer_commit = _peer_commit(agreed.opponent_identity)  # THIS sub-game's peer runtime SHA
-        runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
-        summary = runtime.run(turn_timeout=turn_timeout)
-        summary["peer_github_commit"] = peer_commit  # persist per sub-game (reporting only)
+            agreed = negotiator.verify_peer(peer_msg)
+            result.game_id, result.game_uid = game_id or agreed.game_id, agreed.game_uid
+            known_opponent = agreed.opponent_group
+            result.peer_identity = agreed.opponent_identity or result.peer_identity
+            if listener is not None:
+                listener(
+                    {
+                        "type": "negotiated",
+                        "sub_game": n,
+                        "role": role,
+                        "game_id": agreed.game_id,
+                        "game_uid": agreed.game_uid,
+                    }
+                )
+            peer_commit = _peer_commit(agreed.opponent_identity)  # THIS sub-game's peer runtime SHA
+            runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
+            summary = runtime.run(turn_timeout=turn_timeout)
+            summary["peer_github_commit"] = peer_commit  # persist per sub-game (reporting only)
+        except NetworkError:  # one sub-game's transport failure must not abort the whole series
+            summary = _dropped_summary(n, role, runtime)
         result.summaries.append(summary)
     # After the series: per-sub-game result agreement, then an explicit peer-digest EXCHANGE.
     theirs = result.peer_identity.get("group_id", "")
