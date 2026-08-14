@@ -19,10 +19,13 @@ from .connectivity import articulation_points
 from .disjoint import edge_cells, vertex_disjoint_paths
 from .graph import distance_map, reachable_area
 from .moves import legal_steps
-from .variation import micro_variation
 
 DIST_CAP = 10  # keep-distance is the primary flee term (7x7 diameter ~ 12)
-ENDGAME_WINDOW = 6
+ENDGAME_WINDOW = 12  # start guaranteed-survival scoring earlier (was 6): a strong Police herds
+# a pure distance-maximiser into a corner ~step 26-27, before the old step-29 endgame engaged.
+TIE_MARGIN = 2.0  # seeded-random pick among moves within this of the best -> path diversity so a
+# fixed herding line cannot be replayed; < the 10.0 distance weight, so a materially safer/farther
+# move is never traded away (safety/survival stays primary).
 
 # Tunable objective weights (Phase 7 parameter optimisation target). Distance from the
 # pursuer is the PRIMARY term (maximising the buffer is the strongest evasion against
@@ -100,9 +103,11 @@ class SurvivorBrain(BrainBase):
             cd = min(cop_dist(cell), DIST_CAP)
             degree = len(board.neighbors(cell))
             if endgame:  # near the threshold: guaranteed survival dominates novelty
-                base = 100.0 * cd + 12.0 * degree + _blocked_area(board, cell, peak)
-                return base - 50.0 * (cell in plausible) + micro_variation(
-                    self.seed, obs.step, cell, direction
+                return (
+                    100.0 * cd
+                    + 12.0 * degree
+                    + _blocked_area(board, cell, peak)
+                    - 50.0 * (cell in plausible)
                 )
             routes = vertex_disjoint_paths(board, cell, edges)
             future = min((len(board.neighbors(n)) for n in board.neighbors(cell)), default=0)
@@ -119,9 +124,15 @@ class SurvivorBrain(BrainBase):
                 - w["artic"] * (cell in cut)
                 - w["stay"] * (direction == "STAY")
             )
-            return value + micro_variation(self.seed, obs.step, cell, direction)
+            return value
 
-        best = max(safe, key=score)
+        # Seeded controlled-random tie-break among the safe moves within TIE_MARGIN of the best:
+        # gives real path diversity (ahk-yosi cannot replay one herding line) without ever trading
+        # away a materially safer/farther move. self.rng is seeded per sub-game -> reproducible.
+        scored = [(score(dc), dc) for dc in safe]
+        best_val = max(s for s, _ in scored)
+        near = [dc for s, dc in scored if best_val - s <= TIE_MARGIN]
+        best = near[self.rng.randrange(len(near))]
         return Action("STAY") if best[0] == "STAY" else Action("MOVE", best[0])
 
     def hint(self, obs: Observation) -> str:

@@ -3,10 +3,14 @@ turn-deadline, then the mutual end-of-game audit (transport/servers reused acros
 
 import time
 
-from ..domain.crypto import audit_records
+from ..domain.crypto import audit_records, commit_of
 from .delivery import EquivocationError, Inbox, ProtocolViolationError
 from .engine import IncomingOutcome, SubEngine, _now_iso
 from .wire import AuditPayload, TurnMessage
+
+AUDIT_WAIT = 30.0  # cap the end-of-game audit wait: a responsive peer audits in <1s, so this
+# never regresses a well-behaved peer, but a fully-silent peer can no longer re-introduce a
+# ~turn_timeout stall after a self-concluded survival.
 
 
 class SubGameRuntime:
@@ -51,6 +55,16 @@ class SubGameRuntime:
                 break
             for raw in ready:
                 self._process(TurnMessage.from_wire(raw))
+                # Police self-concludes the SIGNED survival at the 35-step threshold rather than
+                # waiting (up to turn_timeout) for the peer thief's end message. Fires ONLY at the
+                # full threshold with no capture, so an early peer silence (e.g. step 30) still
+                # yields a genuine timeout below — never a fabricated survival.
+                if (
+                    self.result is None
+                    and self.role == "police"
+                    and self.engine.step >= self.engine.threshold
+                ):
+                    self.result = ("survival", "thief")
                 if self.result is not None:
                     break
         return self._finish(turn_timeout)
@@ -75,16 +89,44 @@ class SubGameRuntime:
             self._take_turn()
 
     def _verify_theirs(self, records: list) -> dict:
-        """Integrity (re-hash with our serializer) AND binding (revealed == received in play)."""
+        """Integrity (re-hash with our serializer) AND binding (revealed == received in play).
+
+        Pass/fail semantics are UNCHANGED. On failure we additionally persist enough evidence
+        (first failing step, expected vs received commit, mismatch reason, peer reveal records)
+        to pin the exact cause offline — the records are the exchanged public transcript, so no
+        secret material is added."""
         res = audit_records(records)
         failed = list(res["failed_steps"])
         by_step = {int(r["payload"].get("step", -1)): r for r in records}
-        for step, commit in self.inbox.played.items():
+        integrity_failed = set(res["failed_steps"])
+        mismatches: list[dict] = []
+        for r in records:  # reveal-hash: commit != H(payload,nonce)
+            step = int(r.get("payload", {}).get("step", -1))
+            if step in integrity_failed:
+                try:
+                    recomputed = commit_of(r["payload"], r.get("nonce", ""))
+                except Exception:  # noqa: BLE001 - diagnostics must never raise
+                    recomputed = None
+                mismatches.append(
+                    {"step": step, "reason": "reveal_hash",
+                     "expected_commit": recomputed, "received_commit": r.get("commit")}
+                )
+        for step, commit in self.inbox.played.items():  # binding: revealed == received in play
             rec = by_step.get(int(step))
-            if rec is None or rec.get("commit") != commit:
+            if rec is None:
                 failed.append(int(step))
+                mismatches.append(
+                    {"step": int(step), "reason": "missing_reveal",
+                     "expected_commit": commit, "received_commit": None}
+                )
+            elif rec.get("commit") != commit:
+                failed.append(int(step))
+                mismatches.append(
+                    {"step": int(step), "reason": "binding_received_in_play",
+                     "expected_commit": commit, "received_commit": rec.get("commit")}
+                )
         passed = not failed
-        return {
+        audit = {
             "passed": passed,
             "log_verified": passed,
             "tampered": not passed,
@@ -92,11 +134,20 @@ class SubGameRuntime:
             "failed_steps": sorted(set(failed)),
             "skipped": False,
         }
+        if not passed:
+            mismatches.sort(key=lambda m: m["step"])
+            audit["tamper"] = {
+                "first_failed_step": mismatches[0]["step"] if mismatches else None,
+                "first_reason": mismatches[0]["reason"] if mismatches else None,
+                "mismatches": mismatches,
+                "peer_records": records,
+            }
+        return audit
 
     def _exchange_audit(self, outcome: str, turn_timeout: float) -> dict:
         mine = AuditPayload(sender=self.role, records=self.engine.records, result_claim=outcome)
         self.transport.send_audit(mine.to_wire())
-        theirs = self.transport.poll_audit(turn_timeout)
+        theirs = self.transport.poll_audit(min(turn_timeout, AUDIT_WAIT))
         if theirs is None:
             return self._missing_audit(outcome)
         peer = AuditPayload.from_wire(theirs)
