@@ -145,18 +145,38 @@ class SubGameRuntime:
         return audit
 
     def _exchange_audit(self, outcome: str, turn_timeout: float) -> dict:
+        # Our OUTGOING per-sub-game audit envelope is left byte-identical to the frozen baseline
+        # (no sub_game_number emitted); this fix is receive-side only. See _poll_peer_audit.
         mine = AuditPayload(sender=self.role, records=self.engine.records, result_claim=outcome)
         self.transport.send_audit(mine.to_wire())
-        theirs = self.transport.poll_audit(min(turn_timeout, AUDIT_WAIT))
-        if theirs is None:
+        peer = self._poll_peer_audit(min(turn_timeout, AUDIT_WAIT))
+        if peer is None:
             return self._missing_audit(outcome)
-        peer = AuditPayload.from_wire(theirs)
         # Keep the peer's result_claim: agreement needs BOTH to claim the SAME outcome.
         audit = self._verify_theirs(peer.records)
         audit["local_result_claim"] = outcome
         audit["peer_result_claim"] = peer.result_claim
         audit["result_agreed"] = peer.result_claim == outcome
         return audit
+
+    def _poll_peer_audit(self, wait: float) -> "AuditPayload | None":
+        """The peer's end-of-game audit FOR THIS sub-game. When the peer tags its envelope with
+        an explicit ``sub_game_number`` we BUCKET by it: a straggler audit for a different
+        sub-game (e.g. left in the shared inbox across a role swap) is skipped, never mis-filed
+        onto this one. A peer that omits the tag (older/reference) is taken by arrival, exactly
+        as before — backward compatible. Mirrors the straggler-skip in ``exchange_agreement``."""
+        deadline = time.monotonic() + wait
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            theirs = self.transport.poll_audit(remaining)
+            if theirs is None:
+                return None
+            peer = AuditPayload.from_wire(theirs)
+            if peer.sub_game_number not in (None, self.n):
+                continue  # a straggler audit for a different sub-game: skip, keep waiting
+            return peer
 
     @staticmethod
     def _missing_audit(outcome: str) -> dict:  # no peer audit: unverifiable, not agreed

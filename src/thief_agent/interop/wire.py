@@ -47,11 +47,20 @@ class AuditPayload:
     records: list
     result_claim: str  # "capture" | "survival" | "timeout" | "__consensus__"
     consensus_sha: str | None = None  # series-level digest for explicit mutual confirmation
+    sub_game_number: int | None = None  # explicit sub-game identity so the receiver buckets an
+    # incoming audit by the sub-game it belongs to (not by arrival), surviving role swaps
+
+    # Optional fields omitted from the wire entirely when None, so a strict parser that does not
+    # know the field is never handed an unexpected key (a receiver that does know it tolerates
+    # absence via the dataclass default).
+    _OMIT_WHEN_NONE = ("consensus_sha", "sub_game_number")
 
     def to_wire(self) -> dict:
-        # OMIT consensus_sha entirely when None (agreed with the peer) so a strict parser that
-        # does not know the field is never handed an unexpected key.
-        return {k: v for k, v in asdict(self).items() if not (k == "consensus_sha" and v is None)}
+        return {
+            k: v
+            for k, v in asdict(self).items()
+            if not (k in AuditPayload._OMIT_WHEN_NONE and v is None)
+        }
 
     @classmethod
     def from_wire(cls, data: dict) -> "AuditPayload":
