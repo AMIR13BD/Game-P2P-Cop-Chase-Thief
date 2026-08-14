@@ -104,7 +104,17 @@ def _exchange_consensus(transport, our_role, peer_role, our_sha, turn_timeout) -
         peer = AuditPayload.from_wire(msg)
         if peer.consensus_sha is None:
             continue  # a straggler per-sub-game audit (no digest): keep draining
-        ok = peer.result_claim == _CONSENSUS_TAG and peer.sender == peer_role and peer.records == []
+        # The series-consensus envelope is labelled with the peer's WIRE ROLE. Some peers use
+        # their NATURAL (sub-game-1) role, others the role they played in the LAST sub-game; for
+        # an even-length series those differ (roles alternate), so accept EITHER of the peer's two
+        # wire roles. The digest EQUALITY (checked by the caller) is what actually confirms
+        # agreement — a role-label convention difference must not drop a valid, matching digest.
+        peer_wire_roles = (peer_role, "police" if peer_role == "thief" else "thief")
+        ok = (
+            peer.result_claim == _CONSENSUS_TAG
+            and peer.sender in peer_wire_roles
+            and peer.records == []
+        )
         return peer.consensus_sha if ok else None  # wrong envelope -> reject; caller checks SHA eq
 
 

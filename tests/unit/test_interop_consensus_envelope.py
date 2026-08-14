@@ -1,8 +1,8 @@
 """The final post-series consensus AuditPayload envelope, agreed VERBATIM with uoh-ay26:
 sender = OUR wire role ("police"/"thief"), result_claim = "series_consensus", records = [],
 consensus_sha = 64 lowercase hex. We accept the peer's digest ONLY when its envelope matches
-exactly (peer wire role, tag, empty records, present sha); anything else fails safe. Covers
-regression scenarios A-L.
+(a peer WIRE ROLE — natural OR final-sub-game, since roles alternate — plus tag, empty records,
+present sha); anything else fails safe. Covers regression scenarios A-L.
 """
 
 from thief_agent.interop.series import _CONSENSUS_TAG, _exchange_consensus
@@ -60,10 +60,22 @@ def test_wrong_result_claim_tag_is_rejected():
     assert got is None
 
 
-def test_wrong_sender_role_is_rejected():
-    """Scenario F: peer sender is not the expected complementary wire role."""
-    _t, got = _run("police", "thief", _peer(sender="police"))
+def test_non_wire_role_sender_is_rejected():
+    """Scenario F: a consensus sender must be a WIRE ROLE. A group id / non-role sender is
+    misrouted and rejected (the tag, empty records, 64-hex digest and digest-equality remain
+    the real gates)."""
+    _t, got = _run("police", "thief", _peer(sender="amireman"))
     assert got is None
+
+
+def test_peer_final_sub_game_role_is_accepted():
+    """Scenario F': a peer may label the envelope with its NATURAL role OR the role it played in
+    the LAST sub-game (roles alternate, so for an even series these differ). Both wire roles are
+    accepted — this is the ahk-yosi interop fix: they send their final-sub-game role, not natural.
+    Here our natural role is thief so we expect the peer's natural 'police', but a peer that sends
+    'thief' (its final even-sub-game role) must still be accepted."""
+    _t, got = _run("thief", "police", _peer(sender="thief"))
+    assert got == SHA
 
 
 def test_non_empty_records_is_rejected():
