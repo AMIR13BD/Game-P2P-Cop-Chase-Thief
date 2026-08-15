@@ -44,8 +44,15 @@ def _thief_turns(terms, n):
 
 def test_police_self_concludes_survival_at_threshold():
     terms = default_terms()
-    rt = SubGameRuntime("police", terms, _Stub(_thief_turns(terms, terms["max_steps"])),
-                        "amireman", "0" * 40, 2, seed=7)
+    rt = SubGameRuntime(
+        "police",
+        terms,
+        _Stub(_thief_turns(terms, terms["max_steps"])),
+        "amireman",
+        "0" * 40,
+        2,
+        seed=7,
+    )
     summ = rt.run(turn_timeout=1.0, poll=0.0)  # short: a broken fix would fall through to timeout
     assert summ["result"] == "survival"
     assert summ["winner"] == "thief"
@@ -54,7 +61,14 @@ def test_police_self_concludes_survival_at_threshold():
 
 def test_police_early_peer_silence_is_timeout_not_survival():
     terms = default_terms()
-    rt = SubGameRuntime("police", terms, _Stub(_thief_turns(terms, 30)),  # silent at 30 < 35
-                        "amireman", "0" * 40, 4, seed=7)
+    rt = SubGameRuntime(
+        "police",
+        terms,
+        _Stub(_thief_turns(terms, 30)),  # silent at 30 < 35
+        "amireman",
+        "0" * 40,
+        4,
+        seed=7,
+    )
     summ = rt.run(turn_timeout=0.4, poll=0.0)
     assert summ["result"] == "timeout"  # never fabricate survival before the signed threshold

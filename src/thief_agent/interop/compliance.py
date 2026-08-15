@@ -19,20 +19,14 @@ Two severities, because rule 35 also punishes NOT reporting:
 Only book-mandatory fields are inspected: local or optional extras are never rejected.
 """
 
-REQUIRED_TOP = (
-    "schema_version", "report_type", "game_id", "game_uid", "groups", "num_sub_games",
-    "sub_games", "final_result", "mutual_agreement", "links", "timezone", "game_started_at",
-    "game_ended_at", "group_details",
+from .compliance_spec import (
+    GROUP_DETAIL_FIELDS,
+    OFFICIAL_SUB_GAMES,
+    REQUIRED_AGREEMENT,
+    REQUIRED_FINAL,
+    REQUIRED_ROW,
+    REQUIRED_TOP,
 )
-REQUIRED_ROW = (
-    "sub_game_number", "roles", "result", "winner_group", "score", "tokens", "github_commit",
-    "audit", "steps", "started_at", "ended_at", "log_files",
-)
-REQUIRED_FINAL = ("total_score", "sub_games_won", "ties", "winner_group", "series_tie",
-                  "tokens_total_series")
-REQUIRED_AGREEMENT = ("sha256", "peer_sha256", "sha_match", "results_agreed", "confirmed")
-GROUP_DETAIL_FIELDS = ("members", "repos", "mcp_servers", "hardware_spec")  # §9.3.3
-OFFICIAL_SUB_GAMES = 6  # App. F table 18 row 1 (status: fixed)
 
 
 def _hex(value, size: int) -> bool:
@@ -79,8 +73,11 @@ def _own_values(doc: dict, ours: str, problems: list) -> None:
         problems.append("our own cop+thief repository links are missing (rule 49)")
     for block in (doc.get("group_details") or {}).values():
         if isinstance(block, dict) and block.get("group_id") == ours:
-            problems += [f"group_details[ours] missing '{k}'" for k in GROUP_DETAIL_FIELDS
-                         if not block.get(k)]
+            problems += [
+                f"group_details[ours] missing '{k}'"
+                for k in GROUP_DETAIL_FIELDS
+                if not block.get(k)
+            ]
 
 
 def problems_with(doc, expected_sub_games: int = OFFICIAL_SUB_GAMES, own_group=None) -> list:
@@ -100,8 +97,9 @@ def problems_with(doc, expected_sub_games: int = OFFICIAL_SUB_GAMES, own_group=N
         if not isinstance(block, dict) or any(g not in block for g in groups):
             problems.append(f"final_result.{key} must be keyed by both group ids")
     agreement = doc.get("mutual_agreement") or {}
-    problems += [f"mutual_agreement missing '{k}'" for k in REQUIRED_AGREEMENT
-                 if k not in agreement]
+    problems += [
+        f"mutual_agreement missing '{k}'" for k in REQUIRED_AGREEMENT if k not in agreement
+    ]
     if not _hex(agreement.get("sha256"), 64):
         problems.append("mutual_agreement.sha256 is not a 64-hex SHA-256 digest")
     if not problems:  # value checks only make sense once the shape is sound
@@ -128,8 +126,9 @@ def warnings_for(doc, own_group=None) -> list:
             warnings.append(f"'{peer}' declared no cop+thief repository links")
         for block in (doc.get("group_details") or {}).values():
             if isinstance(block, dict) and block.get("group_id") == peer:
-                warnings += [f"'{peer}' declared no '{k}'" for k in GROUP_DETAIL_FIELDS
-                             if not block.get(k)]
+                warnings += [
+                    f"'{peer}' declared no '{k}'" for k in GROUP_DETAIL_FIELDS if not block.get(k)
+                ]
     return warnings
 
 

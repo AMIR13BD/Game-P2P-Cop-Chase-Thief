@@ -33,16 +33,16 @@ TIE_MARGIN = 2.0  # seeded-random pick among moves within this of the best -> pa
 # handled separately by a hard 2-ply trap filter, so distance is not sacrificed
 # globally -- only cells where the pursuer could actually corner us are refused.
 DEFAULT_WEIGHTS = {
-    "dist": 10.0,     # capped BFS distance from the pursuer (primary: keep the buffer)
+    "dist": 10.0,  # capped BFS distance from the pursuer (primary: keep the buffer)
     "mobility": 1.5,  # open degree at the destination
-    "area": 0.25,     # escape space with the pursuer treated as a wall
-    "routes": 1.0,    # vertex-disjoint escape routes to the board frontier
-    "future": 0.5,    # worst-case degree one step ahead (anti dead-end approach)
-    "revisit": 5.0,   # penalty per prior visit to the destination
-    "recent": 10.0,   # penalty for bouncing back into recent cells (anti-loop)
-    "corner": 0.5,    # gentle tie-break weight on (4-degree)
-    "artic": 2.0,     # penalty for stepping onto a cut vertex
-    "stay": 6.0,      # penalty for a predictable STAY
+    "area": 0.25,  # escape space with the pursuer treated as a wall
+    "routes": 1.0,  # vertex-disjoint escape routes to the board frontier
+    "future": 0.5,  # worst-case degree one step ahead (anti dead-end approach)
+    "revisit": 5.0,  # penalty per prior visit to the destination
+    "recent": 10.0,  # penalty for bouncing back into recent cells (anti-loop)
+    "corner": 0.5,  # gentle tie-break weight on (4-degree)
+    "artic": 2.0,  # penalty for stepping onto a cut vertex
+    "stay": 6.0,  # penalty for a predictable STAY
 }
 
 

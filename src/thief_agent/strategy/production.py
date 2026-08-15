@@ -122,7 +122,9 @@ def make_gameplay_brain(
     deterministic play whenever the key/API is unavailable."""
     if baseline:
         return baseline_brain(role, seed)
-    chosen = police_specialist(seed, horizon) if role == "police" else thief_specialist(seed, horizon)
+    chosen = (
+        police_specialist(seed, horizon) if role == "police" else thief_specialist(seed, horizon)
+    )
     if chosen is not None:
         return chosen
     policy = advisor_policy()

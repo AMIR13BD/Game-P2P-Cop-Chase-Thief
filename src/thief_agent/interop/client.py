@@ -97,7 +97,11 @@ class McpTransport:
                 msg = self._inboxes.agreements.get(timeout=self._resend_interval)
             except queue.Empty:
                 if time.time() >= deadline:
-                    raise NetworkError("opponent never sent its agreement")
+                    # ``queue.Empty`` is the ordinary polling tick, not the failure:
+                    # it fires every ``_resend_interval`` and is normally swallowed by
+                    # the ``continue`` below. Only the deadline is the real error, so
+                    # the internal timeout is suppressed from the public traceback.
+                    raise NetworkError("opponent never sent its agreement") from None
                 continue
             if (
                 want is not None

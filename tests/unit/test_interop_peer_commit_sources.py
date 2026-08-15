@@ -61,10 +61,20 @@ def test_role_swap_keeps_each_sha_with_its_own_group():
             {
                 "sub_game_number": n,
                 "role": "thief" if n % 2 else "police",
-                "result": "survival", "winner": "thief", "steps": 35, "records": [],
-                "audit": {"log_verified": True, "tampered": False, "local_result_claim": "s",
-                          "peer_result_claim": "s", "result_agreed": True},
-                "started_at": "", "duration_seconds": 0.0, "tokens_total": 0,
+                "result": "survival",
+                "winner": "thief",
+                "steps": 35,
+                "records": [],
+                "audit": {
+                    "log_verified": True,
+                    "tampered": False,
+                    "local_result_claim": "s",
+                    "peer_result_claim": "s",
+                    "result_agreed": True,
+                },
+                "started_at": "",
+                "duration_seconds": 0.0,
+                "tokens_total": 0,
                 "peer_github_commit": police_sha if n % 2 else thief_sha,
             }
         )

@@ -58,7 +58,9 @@ def ringrunner_next(pos: Cell, hunter: Cell, board: Board) -> Cell:
         if not board.passable(cell):
             continue
         dist = abs(cell[0] - hunter[0]) + abs(cell[1] - hunter[1])
-        score = DISTANCE_WEIGHT * dist - RING_WEIGHT * abs(ring_of(cell, board.size) - PREFERRED_RING)
+        score = DISTANCE_WEIGHT * dist - RING_WEIGHT * abs(
+            ring_of(cell, board.size) - PREFERRED_RING
+        )
         if best_score is None or score > best_score:
             best, best_score = cell, score
     return best if best is not None else pos

@@ -10,7 +10,7 @@ SYSTEM = {
         "so naive chasing fails: prefer candidates that cut off the thief's escape, reduce its "
         "reachable area, drive it toward an edge/corner, or place a value-positive barrier. "
         "Use opp_distance, mobility, reachable_area and the opponent profile. Choose exactly one "
-        "candidate. Reply ONLY as {\"action_id\":\"A#\"} with an id from candidates."
+        'candidate. Reply ONLY as {"action_id":"A#"} with an id from candidates.'
     ),
     "thief": (
         "You are the tactical selector for the THIEF in a turn-based pursuit on an NxN grid. "
@@ -18,7 +18,7 @@ SYSTEM = {
         "NEVER pick a candidate with capturable_next=true unless all are. Prefer larger opp_distance "
         "and safe_exits, keep high mobility and reachable_area, and avoid corners/dead-ends where the "
         "cop could trap you in two moves. Choose exactly one candidate. Reply ONLY as "
-        "{\"action_id\":\"A#\"} with an id from candidates."
+        '{"action_id":"A#"} with an id from candidates.'
     ),
 }
 

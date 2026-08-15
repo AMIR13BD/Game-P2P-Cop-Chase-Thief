@@ -65,8 +65,12 @@ class UohThiefBrain(BrainBase):
             trial = Board(board.size, board.barriers | {threat})
             space = reachable_area(trial, cell) if cell != threat else 0
             return (
-                9.0 * margin + 2.2 * mobility + 5.0 * routes + 0.6 * space
-                - 4.0 * self._visits[cell] - 15.0 * (cell in recent2)
+                9.0 * margin
+                + 2.2 * mobility
+                + 5.0 * routes
+                + 0.6 * space
+                - 4.0 * self._visits[cell]
+                - 15.0 * (cell in recent2)
                 - (9.0 if dc[0] == "STAY" else 0.0)
             )
 
@@ -86,8 +90,10 @@ class UohCopBrain(BrainBase):
         steps = [dc for dc in legal_steps(obs, board) if dc[0] != "STAY"] or legal_steps(obs, board)
         tdist = distance_map(board, target)
         # the thief's believed best one-step flight away from us
-        flee = max(board.neighbors(target) or [target],
-                   key=lambda c: distance_map(board, obs.self_pos).get(c, 0))
+        flee = max(
+            board.neighbors(target) or [target],
+            key=lambda c: distance_map(board, obs.self_pos).get(c, 0),
+        )
         fdist = distance_map(board, flee)
         far = board.size * board.size
 

@@ -35,39 +35,23 @@ from .cop_locate import CopLocator
 from .disjoint import edge_cells, vertex_disjoint_paths
 from .graph import distance_map, reachable_area
 from .moves import legal_steps
+from .thief_antisqueeze_terms import (
+    DEFAULT_WEIGHTS,
+    DIST_CAP,
+    cop_wall_targets,
+)
 from .variation import micro_variation
-
-DIST_CAP = 8
-
-DEFAULT_WEIGHTS = {
-    "seal": 4.0,  # worst-case area after the Cop's best single wall (primary)
-    "area": 1.0,  # area right now, Cop treated as blocked
-    "exits": 6.0,  # neighbours that are themselves out of pounce range
-    "routes": 3.0,  # vertex-disjoint escape routes to the frontier
-    "degree": 2.0,  # open neighbours
-    "artic": 8.0,  # penalty: standing on a cut vertex
-    "corner": 3.0,  # penalty: corner proximity while walls remain
-    "dist": 2.0,  # mild tie-break only -- never the objective
-    "revisit": 4.0,
-    "recent": 10.0,
-    "stay": 6.0,
-}
-
-
-def _cop_wall_targets(board: Board, cops: set[Cell]) -> set[Cell]:
-    """Every cell the Cop could legally wall next turn (its own cell or one beside it)."""
-    out: set[Cell] = set()
-    for c in cops:
-        if board.in_bounds(c) and c not in board.barriers:
-            out.add(c)
-        for n in board.neighbors(c):
-            out.add(n)
-    return out
 
 
 class AntiSqueezeBrain(BrainBase):
-    def __init__(self, rng, horizon: int = 35, weights: dict | None = None, seed: int = 0,
-                 cop_start: Cell = (0, 0)) -> None:
+    def __init__(
+        self,
+        rng,
+        horizon: int = 35,
+        weights: dict | None = None,
+        seed: int = 0,
+        cop_start: Cell = (0, 0),
+    ) -> None:
         super().__init__(rng)
         self.horizon = horizon
         self.seed = seed
@@ -93,7 +77,7 @@ class AntiSqueezeBrain(BrainBase):
         def cop_dist(cell: Cell) -> int:
             return min((dm.get(cell, far) for dm in dmaps), default=far)
 
-        walls = _cop_wall_targets(board, cops)
+        walls = cop_wall_targets(board, cops)
 
         def worst_area(cell: Cell) -> int:
             """Reachable area after the single wall that hurts us most."""

@@ -2,7 +2,6 @@
 between sub-games). The mutual handshake must re-send our SAME offer until we have
 also received the peer's offer for that sub-game. No protocol/canonical/audit change."""
 
-import queue
 import threading
 import time
 
@@ -13,12 +12,16 @@ from thief_agent.interop.server import PeerInboxes
 def _transport(sends):
     inboxes = PeerInboxes()
     t = McpTransport(
-        "http://peer/mcp", inboxes,
-        agreement_timeout=5.0, resend_interval=0.02, resend_timeout=0.5,
+        "http://peer/mcp",
+        inboxes,
+        agreement_timeout=5.0,
+        resend_interval=0.02,
+        resend_timeout=0.5,
     )
 
     def fake_call(tool, argument, timeout=None):  # never touches the network
         sends.append(dict(argument))
+
     t._call_with_retry = fake_call  # type: ignore[method-assign]
     return t, inboxes
 
@@ -35,6 +38,7 @@ def test_role_swap_first_offer_lost_then_resent_completes():
         while len(sends) < 2:
             time.sleep(0.005)
         inboxes.agreements.put({"sub_game_number": 2, "group_id": "sharNamr"})
+
     threading.Thread(target=peer_new_agent, daemon=True).start()
 
     got = t.exchange_agreement(ours)

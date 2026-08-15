@@ -12,20 +12,34 @@ OURS, THEIRS = "amireman", "sharNamr"
 
 def _summary(n, role, peer_sha):
     return {
-        "sub_game_number": n, "role": role, "result": "survival", "winner": "thief",
-        "steps": 35, "records": [], "audit": {"log_verified": True, "tampered": False,
-        "local_result_claim": "survival", "peer_result_claim": "survival", "result_agreed": True},
-        "started_at": "", "duration_seconds": 0.0, "tokens_total": 0,
+        "sub_game_number": n,
+        "role": role,
+        "result": "survival",
+        "winner": "thief",
+        "steps": 35,
+        "records": [],
+        "audit": {
+            "log_verified": True,
+            "tampered": False,
+            "local_result_claim": "survival",
+            "peer_result_claim": "survival",
+            "result_agreed": True,
+        },
+        "started_at": "",
+        "duration_seconds": 0.0,
+        "tokens_total": 0,
         "peer_github_commit": peer_sha,
     }
 
 
 def test_peer_commit_fallback():
-    assert _peer_commit({"github_commit": A}) == A                       # prefer github_commit
-    assert _peer_commit({"github_commit": "", "git_commit_hash": B}) == B  # E: empty -> git_commit_hash
-    assert _peer_commit({"github_commit": A, "git_commit_hash": B}) == A   # F: both -> github_commit
-    assert _peer_commit({}) == ""                                        # G: missing -> ""
-    assert _peer_commit({"github_commit": "not-a-sha"}) == ""            # non 40-hex rejected
+    assert _peer_commit({"github_commit": A}) == A  # prefer github_commit
+    assert (
+        _peer_commit({"github_commit": "", "git_commit_hash": B}) == B
+    )  # E: empty -> git_commit_hash
+    assert _peer_commit({"github_commit": A, "git_commit_hash": B}) == A  # F: both -> github_commit
+    assert _peer_commit({}) == ""  # G: missing -> ""
+    assert _peer_commit({"github_commit": "not-a-sha"}) == ""  # non 40-hex rejected
     assert _peer_commit(None) == ""
 
 
@@ -42,7 +56,9 @@ def test_result_persists_alternating_peer_sha_per_subgame():
 def test_missing_peer_sha_stays_empty_and_falls_back_to_commits():
     summaries = [_summary(1, "thief", "")]  # G: no per-subgame sha
     res = build_result("G006", "uid", OURS, THEIRS, summaries, {OURS: "o", THEIRS: "FALLBACK"})
-    assert res["sub_games"][0]["github_commit"][THEIRS] == "FALLBACK"  # falls back to commits[theirs]
+    assert (
+        res["sub_games"][0]["github_commit"][THEIRS] == "FALLBACK"
+    )  # falls back to commits[theirs]
     summaries2 = [_summary(1, "thief", "")]
     res2 = build_result("G006", "uid", OURS, THEIRS, summaries2, {OURS: "o"})  # no theirs commit
     assert res2["sub_games"][0]["github_commit"][THEIRS] == ""  # safely empty

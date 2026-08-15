@@ -1,10 +1,8 @@
 """The four official submission artifacts (App. F table 20) — declaration, config, log,
 result — canonical bytes joinable on game_id/game_uid; official scoring so peers agree."""
 
-import hashlib
-
-from ..domain.crypto import canonical_json
 from . import ids
+from .artifacts_util import canon_hash, hardware_block
 from .scoring import aggregate, is_tie_row, score_for
 
 SCHEMA_VERSION = "1.1"
@@ -12,21 +10,6 @@ SCHEMA_VERSION = "1.1"
 # the same value the shared config/game.json carries as token_budget_per_series). It is the
 # DECLARED cap — actual consumption is reported per sub-game and per series in the result.
 AGREED_TOKEN_BUDGET = 200_000
-
-
-def _canon_hash(obj) -> str:
-    return hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
-
-
-def _hw(spec: dict) -> dict:
-    return {
-        "cpu_type": spec.get("cpu_type"),
-        "cpu_freq_mhz": spec.get("cpu_freq_mhz"),
-        "cpu_cores": spec.get("cpu_cores"),
-        "ram_gb": spec.get("ram_gb"),
-        "gpu_model": spec.get("gpu_type"),
-        "vram_gb": spec.get("vram_gb"),
-    }
 
 
 def group_block(identity: dict) -> dict:
@@ -42,7 +25,7 @@ def group_block(identity: dict) -> dict:
         "repos": identity.get("repos", {}),
         "mcp_servers": identity.get("mcp_servers", {}),
         "llm_model": identity.get("llm_model", ""),
-        "hardware_spec": _hw(identity.get("spec", {})),
+        "hardware_spec": hardware_block(identity.get("spec", {})),
     }
 
 
@@ -73,7 +56,7 @@ def build_config(terms, gid, guid, n) -> dict:
         "links": ids.links(gid),
         "terms": terms,
         "config_name": ids.config_name(gid, n),
-        "config_sha256": _canon_hash(terms),
+        "config_sha256": canon_hash(terms),
     }
 
 
@@ -102,7 +85,7 @@ def build_log(summary, gid, guid, group_id, opponent) -> dict:
         "records": records,
         "mutual_agreement": {
             "opponent_group_id": opponent,
-            "sha256": _canon_hash({"records": records}),
+            "sha256": canon_hash({"records": records}),
             "confirmed": bool(audit.get("log_verified")),
         },
     }

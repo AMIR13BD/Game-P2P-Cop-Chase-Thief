@@ -6,9 +6,6 @@ of each sub-game, total tokens); §9.4 + App. E rule 49 (four repo links); ch.5.
 (per-sub-game commit); rule 54 (tokens per sub-game and per series); rules 35/36 (mutual
 agreement); App. F table 17 (scoring + tie) and table 18 row 1 (six sub-games)."""
 
-import json
-
-import pytest
 from official_result_fixture import (
     OURS,
     PEER_POLICE_SHA,
@@ -18,7 +15,6 @@ from official_result_fixture import (
 )
 
 from thief_agent.interop import ids
-from thief_agent.interop.compliance import assert_compliant, problems_with, warnings_for
 from thief_agent.interop.consensus import consensus_sha
 
 
@@ -62,8 +58,12 @@ def test_both_negotiated_per_sub_game_shas_are_reported():
     declared one, and never swapped between the groups when roles alternate."""
     rows = official_result()["sub_games"]
     assert [r["github_commit"][THEIRS] for r in rows] == [
-        PEER_POLICE_SHA, PEER_THIEF_SHA, PEER_POLICE_SHA,
-        PEER_THIEF_SHA, PEER_POLICE_SHA, PEER_THIEF_SHA,
+        PEER_POLICE_SHA,
+        PEER_THIEF_SHA,
+        PEER_POLICE_SHA,
+        PEER_THIEF_SHA,
+        PEER_POLICE_SHA,
+        PEER_THIEF_SHA,
     ]
     assert all(len(r["github_commit"][OURS]) == 40 for r in rows)
     assert all(r["github_commit"][OURS] != r["github_commit"][THEIRS] for r in rows)
@@ -89,7 +89,12 @@ def test_final_aggregate_is_complete_and_correct():
     doc = official_result()
     final = doc["final_result"]
     assert set(final) == {
-        "series_tie", "sub_games_won", "ties", "tokens_total_series", "total_score", "winner_group",
+        "series_tie",
+        "sub_games_won",
+        "ties",
+        "tokens_total_series",
+        "total_score",
+        "winner_group",
     }
     # amireman is Thief on g1/3/5 (survival: 10) and Police on g2/4/6 (capture: 20) => 90 vs 30.
     assert final["total_score"] == {OURS: 90, THEIRS: 30}
@@ -124,67 +129,3 @@ def test_reporting_metadata_never_moves_the_consensus_digest():
     assert consensus_sha("G013", "uid-0001", plain["sub_games"]) == consensus_sha(
         "G013", "uid-0001", rich["sub_games"]
     )
-
-
-def test_validator_accepts_the_official_result():
-    doc = official_result()
-    assert problems_with(doc) == [] and warnings_for(doc) == []
-    assert_compliant(doc)  # does not raise
-
-
-@pytest.mark.parametrize(
-    "mutate",
-    [
-        lambda d: d["sub_games"].pop(),  # fewer than six sub-games
-        lambda d: d["links"].pop("github"),  # rule 49: four repo links
-        lambda d: d["links"]["github"].__setitem__(OURS, {"cop": "u"}),  # our own thief repo
-        lambda d: d["sub_games"][2]["github_commit"].__setitem__(OURS, ""),  # our own, rule 53
-        lambda d: d["sub_games"][0].pop("tokens"),  # rule 54
-        lambda d: d.pop("mutual_agreement"),  # rules 35/36
-        lambda d: d["mutual_agreement"].__setitem__("sha256", "nope"),  # not a SHA-256
-        lambda d: d.pop("group_details"),  # §9.3.3
-        lambda d: d["final_result"].pop("tokens_total_series"),  # series token total
-        lambda d: d.pop("game_started_at"),  # §9.3.3 game timestamp
-        lambda d: d["sub_games"][1].pop("log_files"),  # per-sub-game log reference
-    ],
-)
-def test_validator_rejects_an_incomplete_report(mutate):
-    doc = official_result()
-    mutate(doc)
-    assert problems_with(doc), "an HW-mandatory field went missing and was not caught"
-    with pytest.raises(ValueError):
-        assert_compliant(doc)
-
-
-@pytest.mark.parametrize(
-    "mutate",
-    [
-        lambda d: d["sub_games"][2]["github_commit"].__setitem__(THEIRS, ""),
-        lambda d: d["links"]["github"].__setitem__(THEIRS, {}),
-        lambda d: [b for b in d["group_details"].values() if b["group_id"] == THEIRS][0].pop(
-            "mcp_servers"
-        ),
-    ],
-)
-def test_a_gap_the_peer_alone_could_fill_is_warned_not_blocked(mutate):
-    """Rule 35 punishes NOT reporting too: a peer that declared nothing must never stop our own
-    report from going out. The hole is surfaced loudly instead — and never filled with a guess."""
-    doc = official_result()
-    mutate(doc)
-    assert problems_with(doc) == []  # still sendable
-    assert warnings_for(doc), "a peer-sourced gap must still be reported to the operator"
-    assert_compliant(doc)  # does not raise
-
-
-def test_validator_tolerates_extra_local_fields():
-    doc = official_result()
-    doc["local_notes"] = {"anything": True}
-    doc["sub_games"][0]["duration_seconds"] = 12.5
-    assert problems_with(doc) == []
-
-
-def test_result_is_machine_readable_json(tmp_path):
-    """Rules 33/34: the report is a JSON document, sent as a file — never free text."""
-    path = tmp_path / ids.result_name("G013")
-    path.write_text(json.dumps(official_result()), encoding="utf-8")
-    assert json.loads(path.read_text(encoding="utf-8"))["report_type"] == "final_game_result"

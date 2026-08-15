@@ -49,8 +49,9 @@ class CopLocator:
     board-wide prior, which is what to use when no start term may be assumed.
     """
 
-    def __init__(self, size: int, start: Cell | None, rho: float = 0.1,
-                 barrier_law: bool = True) -> None:
+    def __init__(
+        self, size: int, start: Cell | None, rho: float = 0.1, barrier_law: bool = True
+    ) -> None:
         self.size = size
         self.rho = rho
         self.barrier_law = barrier_law
@@ -90,8 +91,10 @@ class CopLocator:
         # the cell it is standing on (target SELF), so it can legally occupy a wall of
         # its own making. Filtering those out loses the true cell outright.
         if scent:
-            scored = [(_error(_predict(self._prev_scent, c, self.size, self.rho), scent), c)
-                      for c in sorted(pool)]
+            scored = [
+                (_error(_predict(self._prev_scent, c, self.size, self.rho), scent), c)
+                for c in sorted(pool)
+            ]
             floor = min(s for s, _ in scored)
             # Keep every hypothesis the evidence cannot separate from the best. The
             # slack matters: the opponent's emitter need not be bit-identical to the

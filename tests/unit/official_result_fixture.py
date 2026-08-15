@@ -12,7 +12,10 @@ OUR_SHA = "1111111111111111111111111111111111111111"
 PEER_POLICE_SHA = "2222222222222222222222222222222222222222"  # peer runtime on g1/g3/g5
 PEER_THIEF_SHA = "3333333333333333333333333333333333333333"  # peer runtime on g2/g4/g6
 SERIES_SHA = "a1" * 32
-PEER_REPOS = {"cop": "https://github.com/orcai-mj/cop", "thief": "https://github.com/orcai-mj/thief"}
+PEER_REPOS = {
+    "cop": "https://github.com/orcai-mj/cop",
+    "thief": "https://github.com/orcai-mj/thief",
+}
 
 
 def summaries(num_games: int = 6, tokens: int = 0) -> list:
@@ -29,8 +32,11 @@ def summaries(num_games: int = 6, tokens: int = 0) -> list:
                 "steps": 35,
                 "records": [],
                 "audit": {
-                    "log_verified": True, "tampered": False, "local_result_claim": "x",
-                    "peer_result_claim": "x", "result_agreed": True,
+                    "log_verified": True,
+                    "tampered": False,
+                    "local_result_claim": "x",
+                    "peer_result_claim": "x",
+                    "result_agreed": True,
                 },
                 "started_at": f"2026-09-01T10:0{n}:00+00:00",
                 "duration_seconds": 30.0,

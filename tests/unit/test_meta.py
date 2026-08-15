@@ -38,7 +38,13 @@ def test_meta_logs_strategy_and_reason():
     mc.decide(_obs("thief"))
     entry = mc.log[-1]
     assert entry["strategy"] in {
-        "distance", "escape", "evade", "entropy", "endgame", "hybrid", "survivor"
+        "distance",
+        "escape",
+        "evade",
+        "entropy",
+        "endgame",
+        "hybrid",
+        "survivor",
     }
     assert isinstance(entry["reason"], str) and entry["reason"]
     assert entry["fallback"] is False

@@ -60,7 +60,7 @@ def _uoh_thief(_h):
 
 
 def _simple(cls):
-    return lambda _h: (lambda rng: cls(rng))
+    return lambda _h: lambda rng: cls(rng)
 
 
 def main() -> None:
@@ -73,8 +73,10 @@ def main() -> None:
     op = lambda h: _meta(BaselineMeta, "police", h)  # noqa: E731
 
     def row(label, res):
-        print(f"  {label:32s} rate={res['rate']:.3f}  mean_turns={res['mean_turns']:5.1f}  "
-              f"avg_score={res['avg_score']:5.2f}  illegal={res['illegal']}")
+        print(
+            f"  {label:32s} rate={res['rate']:.3f}  mean_turns={res['mean_turns']:5.1f}  "
+            f"avg_score={res['avg_score']:5.2f}  illegal={res['illegal']}"
+        )
 
     print(f"\n=== THIEF survival ({n} scenarios; higher rate/score better) ===")
     row("OLD thief vs uoh-cop", _bench(ot, _uoh_cop, "thief", scen))

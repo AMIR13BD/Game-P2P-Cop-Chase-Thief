@@ -111,13 +111,7 @@ class ContainBrain(BrainBase):
             contain = _containment(board, cell, target)  # smaller Thief escape area is better
             revisit = self._visits[cell]  # anti-cycling: avoid re-treading our own path
             block = 1 if cell in cut else 0  # standing on a cut vertex constrains the Thief
-            value = (
-                -w_close * total
-                - 2.0 * axis
-                - 0.25 * contain
-                - 3.0 * revisit
-                + 0.5 * block
-            )
+            value = -w_close * total - 2.0 * axis - 0.25 * contain - 3.0 * revisit + 0.5 * block
             return value + micro_variation(self.seed, obs.step, cell, direction)
 
         best = max(movers, key=score)
