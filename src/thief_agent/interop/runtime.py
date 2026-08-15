@@ -52,6 +52,9 @@ class SubGameRuntime(AuditExchangeMixin):
             except (EquivocationError, ProtocolViolationError):
                 self.result = ("technical_loss", "-")  # classify, never crash the series
                 break
+            if not ready:
+                self._absorbed_terminal(incoming)
+                continue
             for raw in ready:
                 self._process(TurnMessage.from_wire(raw))
                 # Police self-concludes the SIGNED survival at the 35-step threshold rather than
@@ -75,6 +78,32 @@ class SubGameRuntime(AuditExchangeMixin):
         if message.win_claim:  # thief reached survival threshold
             self.result = ("survival", "thief")
 
+    def _absorbed_terminal(self, raw: dict) -> None:
+        """Honour a terminal ANSWER carried by a redelivered turn.
+
+        Exactly-once delivery (SPEC 7.1) rightly absorbs a duplicate so its MOVE is never
+        replayed. But a peer whose sub-game has just ended re-sends a COPY of its last turn
+        to carry the answer it still owes us (the reference ``deliver_verdict`` /
+        courtesy-flush convention). That copy repeats an already-played step and commit, so
+        it is absorbed -- yet its ``claim_response`` is genuinely NEW information.
+
+        Reading only the terminal fields keeps the move suppressed (exactly-once is not
+        weakened) while the verdict still lands. Without this a Cop that has legitimately
+        captured never sees ``claim_response.caught == true`` (guide S8: "the Cop learns it
+        has won on receiving claim_response.caught == true"), sits out the full turn
+        deadline, and a real capture is misrecorded as a timeout -- which then also
+        suppresses its audit and desynchronises the rest of the series.
+        """
+        if self.result is not None:
+            return
+        answer = raw.get("claim_response")
+        if self.role == "police" and isinstance(answer, dict) and answer.get("caught"):
+            self.result = ("capture", "police")
+            return
+        win = raw.get("win_claim")
+        if isinstance(win, dict) and win.get("type") == "survival":
+            self.result = ("survival", "thief")
+
     def _process(self, msg: TurnMessage) -> None:
         outcome: IncomingOutcome = self.engine.receive(msg)
         if outcome.i_won:
@@ -89,10 +118,13 @@ class SubGameRuntime(AuditExchangeMixin):
 
     def _finish(self, turn_timeout: float) -> dict:
         outcome, winner = self.result
-        if outcome == "timeout":
-            audit = self._missing_audit(outcome)
-        else:
-            audit = self._exchange_audit(outcome, turn_timeout)
+        # ALWAYS publish our own audit records, timeout included. Our half of the transcript
+        # is valid evidence whatever the outcome, and the peer must be able to verify it; the
+        # old timeout short-circuit meant a sub-game we misjudged as a timeout sent no
+        # ``submit_audit`` at all AND left the peer's audit unread, which then mis-associated
+        # onto the NEXT sub-game and showed up as a false TAMPER. When the peer really is
+        # silent this is unchanged: ``_exchange_audit`` still falls back to ``_missing_audit``.
+        audit = self._exchange_audit(outcome, turn_timeout)
         self._drain_turns()
         # Survival length = threshold (max_steps) for BOTH peers, not our own turn count.
         steps = self.engine.threshold if outcome == "survival" else self.engine.step
