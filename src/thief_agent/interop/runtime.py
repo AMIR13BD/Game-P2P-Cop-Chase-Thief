@@ -4,6 +4,7 @@ turn-deadline, then the mutual end-of-game audit (transport/servers reused acros
 import time
 
 from ..domain.crypto import audit_records, commit_of
+from . import commits
 from .delivery import EquivocationError, Inbox, ProtocolViolationError
 from .engine import IncomingOutcome, SubEngine, _now_iso
 from .wire import AuditPayload, TurnMessage
@@ -36,6 +37,9 @@ class SubGameRuntime:
         self.result: tuple[str, str] | None = None  # (outcome, winner_role)
         self.started_at = _now_iso()
         self._t0 = time.monotonic()
+        # The peer's Step-0 commit as revealed in THIS sub-game's audit (book ch.5.5) —
+        # reporting-only, and only a fallback when its identity declared no commit.
+        self.peer_step0_commit = ""
 
     def run(self, turn_timeout: float = 180.0, poll: float = 0.3) -> dict:
         if self.role == "thief":
@@ -152,6 +156,7 @@ class SubGameRuntime:
         peer = self._poll_peer_audit(min(turn_timeout, AUDIT_WAIT))
         if peer is None:
             return self._missing_audit(outcome)
+        self.peer_step0_commit = commits.from_records(peer.records)  # reporting only
         # Keep the peer's result_claim: agreement needs BOTH to claim the SAME outcome.
         audit = self._verify_theirs(peer.records)
         audit["local_result_claim"] = outcome
@@ -217,5 +222,8 @@ class SubGameRuntime:
             "audit": audit,
             "started_at": self.started_at,
             "duration_seconds": time.monotonic() - self._t0,
-            "tokens_total": 0,
+            # Book App. E rule 54: report the tokens actually consumed in this sub-game (0 for
+            # template/deterministic play), never a placeholder.
+            "tokens_total": self.engine.tokens_used,
+            "peer_github_commit_step0": self.peer_step0_commit,
         }

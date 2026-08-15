@@ -35,11 +35,15 @@ def aggregate(rows: list, ours: str, theirs: str) -> dict:
     """Fold per-sub-game rows into the final_result block (both peers derive the same)."""
     totals = {ours: 0, theirs: 0}
     won = {ours: 0, theirs: 0}
+    tokens = {ours: 0, theirs: 0}
     ties = 0
     for row in rows:
         so, st = row["score"][ours], row["score"][theirs]
         totals[ours] += so
         totals[theirs] += st
+        per_row = row.get("tokens") or {}
+        tokens[ours] += int(per_row.get(ours, 0) or 0)
+        tokens[theirs] += int(per_row.get(theirs, 0) or 0)
         if so > st:
             won[ours] += 1
         elif st > so:
@@ -55,5 +59,7 @@ def aggregate(rows: list, ours: str, theirs: str) -> dict:
         "winner_group": None if series_tie else max(totals, key=lambda k: totals[k]),
         "series_tie": series_tie,
         "tie_score_each": TIE_SCORE if series_tie else None,
-        "tokens_total_series": {ours: 0, theirs: 0},
+        # Series total of the per-sub-game consumption (book App. E rule 54: report the tokens
+        # consumed in the sub-game AND in the series).
+        "tokens_total_series": tokens,
     }

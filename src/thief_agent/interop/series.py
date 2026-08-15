@@ -5,13 +5,12 @@ sub-game runs a fresh handshake and runtime. Roles alternate: the natural role o
 sub-games, the opposite on even ones — so when we are cop the opponent is thief.
 """
 
-import re
 import time
 from dataclasses import dataclass, field
 
 from ..exceptions import NetworkError
 from ..shared.sysinfo import system_spec
-from . import DEFAULT_MEMBERS
+from . import DEFAULT_MEMBERS, commits
 from .consensus import canonical_rows, consensus_sha
 from .engine import _now_iso
 from .negotiate import Negotiator
@@ -20,21 +19,16 @@ from .scoring import role_for
 from .wire import AuditPayload
 
 _CONSENSUS_TAG = "series_consensus"  # exact result_claim tag agreed with the peer
-_HEX40 = re.compile(r"[0-9a-fA-F]{40}")
 
 
-def _peer_commit(identity: dict) -> str:
-    """The peer's runtime SHA for THIS sub-game, from its negotiated identity. Prefer
-    ``github_commit``, else ``git_commit_hash``; return the first that is a 40-char hex,
-    otherwise "" (the existing schema's safe empty). Reporting-only: never used in the
-    canonical consensus (which excludes github_commit)."""
-    if not isinstance(identity, dict):
-        return ""
-    for key in ("github_commit", "git_commit_hash"):
-        val = str(identity.get(key) or "").strip()
-        if _HEX40.fullmatch(val):
-            return val
-    return ""
+def _peer_commit(identity: dict, greeting: dict | None = None) -> str:
+    """The peer's runtime SHA for THIS sub-game, as the peer itself declared it: from its
+    negotiated ``identity`` block, else from the greeting that carried it (peers differ on
+    where they put it). Only an exact 40-hex value is accepted, otherwise "" — the existing
+    schema's safe empty. Reporting-only: never used in the canonical consensus (which
+    excludes github_commit). See ``commits`` for the Step-0 fallback used when both are
+    empty."""
+    return commits.from_identity(identity, greeting)
 
 
 def identity_for(
@@ -183,10 +177,16 @@ def run_series(
                         "game_uid": agreed.game_uid,
                     }
                 )
-            peer_commit = _peer_commit(agreed.opponent_identity)  # THIS sub-game's peer runtime SHA
+            # THIS sub-game's peer runtime SHA, from the peer's own declaration.
+            peer_commit = _peer_commit(agreed.opponent_identity, peer_msg)
             runtime = SubGameRuntime(role, terms, transport, group, github_commit, n, seed, listener)
             summary = runtime.run(turn_timeout=turn_timeout)
-            summary["peer_github_commit"] = peer_commit  # persist per sub-game (reporting only)
+            # Persist per sub-game (reporting only). A peer that declares no commit in its
+            # identity still reveals one in its signed Step-0 audit record (book ch.5.5); that
+            # reveal is this sub-game's own, so it is used only as a fallback — never invented.
+            summary["peer_github_commit"] = peer_commit or summary.get(
+                "peer_github_commit_step0", ""
+            )
         except NetworkError:  # one sub-game's transport failure must not abort the whole series
             summary = _dropped_summary(n, role, runtime)
         result.summaries.append(summary)

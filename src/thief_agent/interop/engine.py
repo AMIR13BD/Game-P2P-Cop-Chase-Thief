@@ -67,6 +67,17 @@ class SubEngine:
     def step(self) -> int:
         return self.half.step
 
+    @property
+    def tokens_used(self) -> int:
+        """LLM tokens this sub-game actually consumed, for the mandatory report (book App. E
+        rule 54). Zero for template/deterministic play — the advisor is the only consumer, and
+        it keeps its own counters; a brain without one reports 0 rather than a guess."""
+        advisor = getattr(self.half.brain, "advisor", None)
+        usage = getattr(getattr(advisor, "client", None), "usage", None)
+        if not isinstance(usage, dict):
+            return 0
+        return int(usage.get("input_tokens", 0) or 0) + int(usage.get("output_tokens", 0) or 0)
+
     def survived(self) -> bool:
         return self.role == "thief" and self.half.step >= self.threshold
 

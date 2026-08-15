@@ -17,6 +17,12 @@ TOP = {
     "schema_version",
     "sub_games",
     "timezone",
+    # Book §9.3.3 requires the mandatory report to carry each group's identity / MCP / hardware
+    # declaration and the game timestamps; the reference sample keeps them only in the
+    # declaration, so these three keys are additions the book itself mandates.
+    "group_details",
+    "game_started_at",
+    "game_ended_at",
 }
 LINKS = {"config", "declaration", "github", "log", "result"}
 # reference-required {confirmed, sha256} PLUS the mutual-confirmation evidence both teams

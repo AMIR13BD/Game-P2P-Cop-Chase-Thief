@@ -3,12 +3,14 @@ stays structurally mail-free. Reuses the existing Gmail sender only. Demo mode t
 explicit non-lecturer address (via the counted should_send bypass); official mode targets
 the lecturer default. Any Gmail failure keeps all artifacts (nothing is deleted)."""
 
+import json
 import os
 from argparse import Namespace
 
 from ..infra import gmail_auth as ga
 from ..infra import gmail_cli as gc
 from ..infra import gmail_report as gr
+from .compliance import assert_compliant, warnings_for
 
 
 def demo_email(out: str, game_id: str, recipient: str) -> None:
@@ -33,6 +35,14 @@ def official_email(out: str, game_id: str) -> None:
     caller. Recipient is the lecturer default — never the demo address."""
     name, blob = gr.report_attachment(out, game_id)  # the ONE result JSON (that exact file)
     gr.validate_attachment(blob)
+    report = json.loads(blob)
+    try:  # fail closed: never mail a report that misses a book-mandatory field of OURS
+        assert_compliant(report)
+    except ValueError as exc:
+        print(f"  NOT EMAILING: {exc}; result saved, nothing sent.")
+        return
+    for gap in warnings_for(report):  # peer-sourced holes: reported, never a reason not to send
+        print(f"  REPORT GAP (peer never declared it): {gap}")
     recipient = ga.email_settings(None, "send")["recipient"]  # lecturer default
     msg = gr.build_message("me", recipient, gc._subject(game_id), gc._body(game_id), name, blob)
     try:

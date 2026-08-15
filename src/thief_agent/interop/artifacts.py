@@ -8,6 +8,10 @@ from . import ids
 from .scoring import aggregate, is_tie_row, score_for
 
 SCHEMA_VERSION = "1.1"
+# The agreed LLM token ceiling for a series (book App. F table 18, [aomdan tokens la-sidra];
+# the same value the shared config/game.json carries as token_budget_per_series). It is the
+# DECLARED cap — actual consumption is reported per sub-game and per series in the result.
+AGREED_TOKEN_BUDGET = 200_000
 
 
 def _canon_hash(obj) -> str:
@@ -25,10 +29,12 @@ def _hw(spec: dict) -> dict:
     }
 
 
-def _group_block(identity: dict) -> dict:
+def group_block(identity: dict) -> dict:
+    """One group's static declaration block: identity, members, repos, MCP servers, model and
+    hardware spec (book §9.3.3 — the mandatory report carries these for both groups)."""
     commit = identity.get("github_commit") or identity.get("git_commit_hash", "")
     return {
-        "group_id": identity["group_id"],
+        "group_id": identity.get("group_id", ""),  # never crash artifact emission on a thin peer
         "group_name": identity.get("group_name", ""),
         "git_commit_hash": commit,
         "github_commit": commit,
@@ -40,7 +46,9 @@ def _group_block(identity: dict) -> dict:
     }
 
 
-def build_declaration(gid, guid, own, peer, num_sub_games, started="", ended="") -> dict:
+def build_declaration(
+    gid, guid, own, peer, num_sub_games, started="", ended="", max_tokens=AGREED_TOKEN_BUDGET
+) -> dict:
     return {
         "schema_version": SCHEMA_VERSION,
         "declaration_type": "pre_game_declaration",
@@ -51,8 +59,8 @@ def build_declaration(gid, guid, own, peer, num_sub_games, started="", ended="")
         "game_started_at": started,
         "game_ended_at": ended,
         "num_sub_games": num_sub_games,
-        "max_tokens_per_game": 0,
-        "groups": {"group_1": _group_block(own), "group_2": _group_block(peer)},
+        "max_tokens_per_game": max_tokens,  # the agreed ceiling (book ch.9 pre-game declaration)
+        "groups": {"group_1": group_block(own), "group_2": group_block(peer)},
     }
 
 
@@ -114,7 +122,9 @@ def _result_rows(summaries, ours, theirs, commits) -> list:
                 "score": {ours: so, theirs: st},
                 "winner_group": (ours if so > st else (theirs if st > so else None)),
                 "tie": is_tie_row(outcome, so, st),
-                "tokens": {ours: 0, theirs: 0},
+                # Our real consumption for this sub-game (book App. E rule 54). The peer
+                # reports its own in its own result: we never invent a number for it.
+                "tokens": {ours: int(s.get("tokens_total") or 0), theirs: 0},
                 "github_commit": {
                     ours: commits.get(ours, ""),
                     theirs: s.get("peer_github_commit") or commits.get(theirs, ""),

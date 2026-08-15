@@ -48,6 +48,7 @@ class _StubEngine:
         self._outcome = outcome
         self.records = records
         self.step = len(records)
+        self.tokens_used = 0  # deterministic stub: no model, so no tokens to report
         self._opening = TurnMessage(step=1, sender=role, commit="open", hint="")
         self._concession = concession
 

@@ -1,12 +1,15 @@
-"""Shape the friendly result to the reference submission schema: add top-level
-``mutual_agreement``, ``links.github`` and per-sub-game timing (``started_at`` /
-``ended_at`` / ``steps`` / ``log_files``). ADDITIVE only — scores, roles, audit and
-github_commit are untouched; used for the friendly/demo result export.
+"""Shape the result to the mandatory report schema of book ch.9: top-level
+``mutual_agreement`` (SHA-256 backed), the four GitHub links of both groups (App. E rule 49),
+each group's identity / MCP / hardware declaration (§9.3.3), the game timestamps, and
+per-sub-game timing (``started_at`` / ``ended_at`` / ``steps`` / ``log_files``). ADDITIVE
+only — scores, roles, audit, tokens and github_commit are untouched, and nothing here enters
+the canonical consensus preimage.
 """
 
 from datetime import datetime, timedelta
 
 from . import ids
+from .artifacts import group_block
 from .consensus import consensus_sha
 
 # The reference result's final_result keys — the export is pruned to EXACTLY these so the
@@ -67,7 +70,15 @@ def enrich_result(
         row["ended_at"] = _ended(row["started_at"], s.get("duration_seconds", 0))
         row["steps"] = s.get("steps", 0)
         row["log_files"] = {ours: ids.log_name(gid, n), theirs: ids.log_name(gid, n)}
+    # App. E rule 49 / §9.4: the attached JSON carries FOUR repository links — each group's
+    # cop and thief repo — taken from the identity each side declared in the handshake.
     result_doc["links"]["github"] = {ours: own.get("repos", {}), theirs: peer.get("repos", {})}
+    # §9.3.3: the mandatory report also carries each group's identity, MCP addresses, hardware
+    # declaration and model, plus the game timestamps. Same blocks as the declaration.
+    result_doc["group_details"] = {"group_1": group_block(own), "group_2": group_block(peer)}
+    rows = result_doc["sub_games"]
+    result_doc["game_started_at"] = rows[0]["started_at"] if rows else ""
+    result_doc["game_ended_at"] = rows[-1]["ended_at"] if rows else ""
     c = consensus or {}
     logs_clean = _mutual_clean(result_doc["sub_games"])
     results_agreed = _results_agreed(result_doc["sub_games"])

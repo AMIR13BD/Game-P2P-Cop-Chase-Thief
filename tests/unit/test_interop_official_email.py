@@ -1,10 +1,18 @@
 """OFFICIAL counted mode on the friendly transport: --counted reuses the exact friendly
 run/transport and, after a clean final audit, emails the ONE result JSON to the LECTURER
 (never the demo address). Without --counted the lecturer is never emailed; demo mode is
-unchanged. Fully mocked: no match, no real email."""
+unchanged. The attachment must also be book-compliant, or nothing is sent (App. E rules
+33-35). Fully mocked: no match, no real email."""
+
+import json
+
+from official_result_fixture import official_result
 
 from thief_agent.interop import cli
 from thief_agent.interop.friendly import FriendlyResult
+
+GAME_ID = "amireman-vs-uoh-ay26"
+COMPLIANT = json.dumps(official_result(GAME_ID)).encode("utf-8")
 
 
 class _BM:  # capture build_message(recipient, attachment name)
@@ -34,14 +42,14 @@ class _DemoRun:  # count gmail_cli.run calls (the demo sender)
         return 0
 
 
-def _wire(monkeypatch, clean=True):
+def _wire(monkeypatch, clean=True, blob=COMPLIANT):
     monkeypatch.delenv("PT_GMAIL_RECIPIENT", raising=False)
-    fake = FriendlyResult(clean=clean, game_id="amireman-vs-uoh-ay26", summaries=[], result_doc={})
+    fake = FriendlyResult(clean=clean, game_id=GAME_ID, summaries=[], result_doc={})
     monkeypatch.setattr(cli, "run_friendly", lambda **kw: fake)
     bm, sr, demo = _BM(), _SR(), _DemoRun()
     monkeypatch.setattr(
         "thief_agent.infra.gmail_report.report_attachment",
-        lambda d, g: (f"result_{g}.json", b'{"k":1}'),
+        lambda d, g: (f"result_{g}.json", blob),
     )
     monkeypatch.setattr("thief_agent.infra.gmail_report.build_message", bm)
     monkeypatch.setattr("thief_agent.infra.gmail_report.send_report", sr)
@@ -68,6 +76,15 @@ def test_counted_not_clean_sends_nothing(monkeypatch):
     bm, sr, demo = _wire(monkeypatch, clean=False)
     rc = cli.main(["friendly", "--peer", "http://x/mcp", "--counted"])
     assert sr.calls == 0 and rc == 6
+
+
+def test_counted_never_mails_a_report_missing_a_mandatory_field(monkeypatch):
+    """Fail closed: a clean series whose result lacks a book-mandatory field is NOT sent."""
+    doc = official_result(GAME_ID)
+    doc["links"].pop("github")  # App. E rule 49: the four repository links
+    _bm, sr, demo = _wire(monkeypatch, blob=json.dumps(doc).encode("utf-8"))
+    cli.main(["friendly", "--peer", "http://x/mcp", "--counted"])
+    assert sr.calls == 0 and demo.calls == 0
 
 
 def test_demo_mode_unchanged_targets_demo_not_lecturer(monkeypatch):
