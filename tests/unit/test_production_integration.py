@@ -1,5 +1,5 @@
-"""Production-integration proofs: real gameplay paths use the adaptive MetaController
-via one shared factory; profiles learn only from audited evidence and reset per
+"""Production-integration proofs: every real gameplay path builds its brain through the
+ONE shared factory (so a default change lands everywhere at once); profiles learn only from audited evidence and reset per
 opponent; hint credibility gates live influence; network barriers synchronize."""
 
 import thief_agent.sdk.series as series_mod
@@ -59,23 +59,23 @@ def _obs(role, **kw):
     return Observation(**base)
 
 
-# 1 — local production gameplay uses MetaController
-def test_local_series_uses_metacontroller(monkeypatch):
+# 1 — local production gameplay goes through the shared factory
+def test_local_series_uses_production_defaults(monkeypatch):
     seen = _spy_series(monkeypatch)
     series_mod.run_series(CFG, Role.POLICE, "g", DevTestSigner(), seed=1, github_commit="0" * 40)
-    assert seen and all(pt == ("MetaController", "MetaController") for pt in seen)
+    assert seen and all(pt == ("RingBreakerBrain", "AntiSqueezeBrain") for pt in seen)
 
 
 # 2 — network driver uses the production factory
 def test_network_driver_uses_production_factory():
-    assert net_driver.brain("police", 3).__class__.__name__ == "MetaController"
-    assert net_driver.brain("thief", 3).__class__.__name__ == "MetaController"
+    assert net_driver.brain("police", 3).__class__.__name__ == "RingBreakerBrain"
+    assert net_driver.brain("thief", 3).__class__.__name__ == "AntiSqueezeBrain"
 
 
 # 3 — responder uses the production factory
 def test_responder_uses_production_factory():
-    assert responder_brain("police", 1, 35).__class__.__name__ == "MetaController"
-    assert responder_brain("thief", 1, 35).__class__.__name__ == "MetaController"
+    assert responder_brain("police", 1, 35).__class__.__name__ == "RingBreakerBrain"
+    assert responder_brain("thief", 1, 35).__class__.__name__ == "AntiSqueezeBrain"
 
 
 # 4 — same seed gives deterministic decisions
@@ -133,9 +133,13 @@ def test_credible_hint_biases_legal_decision():
 
 
 def test_police_specialist_env_opt_in(monkeypatch):
-    # Default: robust portfolio (MetaController). Opt-in: ContainBrain, police only.
+    # Default: the championship Cop. Opt-in: ContainBrain, police only. The portfolio
+    # MetaController stays reachable through POLICE_STRATEGY=meta.
     monkeypatch.delenv("POLICE_STRATEGY", raising=False)
-    assert make_gameplay_brain("police", 1).__class__.__name__ == "MetaController"
+    monkeypatch.delenv("THIEF_STRATEGY", raising=False)
+    assert make_gameplay_brain("police", 1).__class__.__name__ == "RingBreakerBrain"
     monkeypatch.setenv("POLICE_STRATEGY", "contain")
     assert make_gameplay_brain("police", 1).__class__.__name__ == "ContainBrain"
-    assert make_gameplay_brain("thief", 1).__class__.__name__ == "MetaController"  # thief unaffected
+    assert make_gameplay_brain("thief", 1).__class__.__name__ == "AntiSqueezeBrain"  # unaffected
+    monkeypatch.setenv("POLICE_STRATEGY", "meta")
+    assert make_gameplay_brain("police", 1).__class__.__name__ == "MetaController"

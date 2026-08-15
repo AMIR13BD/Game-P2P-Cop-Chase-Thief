@@ -47,9 +47,10 @@ def test_role_for_alternates():
 
 
 def test_brain_selection():
-    # Production default is the adaptive MetaController for both roles...
-    assert net_driver.brain("police", 1).__class__.__name__ == "MetaController"
-    assert net_driver.brain("thief", 1).__class__.__name__ == "MetaController"
+    # Production default is the championship brain for each role (see
+    # strategy/production.py for the measurements behind the choice)...
+    assert net_driver.brain("police", 1).__class__.__name__ == "RingBreakerBrain"
+    assert net_driver.brain("thief", 1).__class__.__name__ == "AntiSqueezeBrain"
     # ...baseline brains remain available only on explicit request.
     assert net_driver.brain("police", 1, baseline=True).__class__.__name__ == "PoliceGreedyBrain"
     assert net_driver.brain("thief", 1, baseline=True).__class__.__name__ == "ThiefDistanceBrain"
