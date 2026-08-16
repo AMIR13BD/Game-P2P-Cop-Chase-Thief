@@ -531,7 +531,7 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 | At least 2 games vs different groups | ≥ 2 | ✔ 4 counted (§7.1) |
 | End-of-game email, each group separately | both sides sent | ✔ sent for `G002`; per-match thereafter |
 | No secrets in the repository | verified | ✔ §9 |
-| Annotated tag `v1.0-submission` | pushed | ⬜ **deliberately not yet created** — the remaining series is unplayed |
+| Annotated tag `v1.0-submission` | pushed | ⬜ **not yet created** — G020 is played and the screenshots are in; the tag waits on the §7.1 final-evidence pass |
 
 Remaining actions are tracked in
 [`README_FINALIZATION_CHECKLIST.md`](README_FINALIZATION_CHECKLIST.md).
