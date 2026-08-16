@@ -1,0 +1,3 @@
+# Obsidian writes local UI state here; it is machine-specific, not evidence.
+workspace.json
+workspace-mobile.json
