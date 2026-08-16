@@ -8,9 +8,19 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from .version import check_config_version
+
 
 def load_json(path: str | Path) -> dict[str, Any]:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    """Load a shared game config, validating its declared version at startup (§8.1).
+
+    `check_config_version` treats a missing `version` key as the current version, so an
+    opponent's Appendix-F contract file still loads; only an explicitly unsupported
+    version fails closed.
+    """
+    cfg = json.loads(Path(path).read_text(encoding="utf-8"))
+    check_config_version(cfg)
+    return cfg
 
 
 def load_toml(path: str | Path) -> dict[str, Any]:

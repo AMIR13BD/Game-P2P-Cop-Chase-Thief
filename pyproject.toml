@@ -1,7 +1,12 @@
 [project]
 name = "thief-agent"
-version = "0.1.0"
-description = "Thief peer for the P2P Police-Thief league (team amireman). Day-1 local-playable core."
+version = "1.00"
+description = "Thief agent for the distributed P2P Police-Thief league (team amireman)."
+readme = "README.md"
+authors = [
+    { name = "Amir Fadila" },
+    { name = "Eman Sarhan" },
+]
 requires-python = ">=3.13"
 dependencies = [
     "fastmcp==3.4.5",
@@ -19,6 +24,7 @@ gmail = [
 [dependency-groups]
 dev = [
     "jsonschema>=4.26.0",
+    "matplotlib>=3.11.1",
     "pytest>=8",
     "pytest-cov>=7.1.0",
     "ruff>=0.6",

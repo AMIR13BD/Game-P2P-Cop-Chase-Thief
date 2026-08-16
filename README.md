@@ -31,7 +31,9 @@ Department of Computer Science, *Orchestration of AI Agents*, final project 2026
 9. [Security, secrets and integrity](#9-security-secrets-and-integrity)
 10. [Reproducibility](#10-reproducibility)
 11. [Token usage and project cost](#11-token-usage-and-project-cost)
-12. [Submission checklist](#12-submission-checklist)
+12. [Repository research and quality docs](#12-repository-research-and-quality-docs)
+13. [Installation, troubleshooting and contribution](#13-installation-troubleshooting-and-contribution)
+14. [Submission checklist](#14-submission-checklist)
 
 ---
 
@@ -547,7 +549,7 @@ repository's history.**
 
 ```bash
 uv sync                                                  # install (locked)
-uv run pytest                                            # 563 tests
+uv run pytest                                            # 597 tests
 uv run python -m thief_agent series --seed 1234          # local six-sub-game series
 uv run python -m thief_agent serve --port 8002 --token dev-token          # run as a peer
 uv run python -m thief_agent netplay --opponent-url http://host:8001/mcp \
@@ -606,7 +608,191 @@ prices — caching, not model choice, is the dominant factor.
 
 ---
 
-## 12. Submission checklist
+## 12. Repository research and quality docs
+
+*(Software-guidelines §9 research and analysis, §10.2 interface documentation, §13 quality
+standards, and §2.3 per-mechanism PRDs.)*
+
+### 12.1 Research and results analysis
+
+| Artefact | What it contains |
+|---|---|
+| [`docs/research/results_analysis.ipynb`](docs/research/results_analysis.ipynb) | Jupyter analysis notebook — estimator choice, strategy comparison, OAT sensitivity, the board-size/horizon interaction, and the official G020 result, with references |
+| [`docs/research/oat_sensitivity.csv`](docs/research/oat_sensitivity.csv) | One-at-a-time sweep, 4 parameters × 4 opponents × 200 seeds per point |
+| [`docs/research/horizon_interaction.csv`](docs/research/horizon_interaction.csv) | Board size × step budget, 60 seeds per point |
+| [`evidence/scenario_matchups.csv`](evidence/scenario_matchups.csv) | Paired baseline-vs-candidate benchmark, 600 scenarios per matchup with 95% intervals |
+| [`scripts/param_sweep.py`](scripts/param_sweep.py) · [`scripts/make_charts.py`](scripts/make_charts.py) | The tools that produced the CSVs and the figures — every number is regenerable |
+
+**Simulation is labelled as simulation.** Everything in this section except the G020
+figures is *local offline measurement* of our engine against itself or scripted opponents.
+It is never presented as league play; the counted results live in §7.1.
+
+**Headline findings**
+
+![Paired strategy benchmark](docs/images/chart-strategy-benchmark.png)
+
+Both production brains beat their frozen baselines with non-overlapping 95% intervals —
+Cop 0.2317 → 0.4867, Thief 0.7683 → 0.9150 — with zero illegal and zero technical outcomes
+across 3,600 scenario-plays.
+
+![OAT sensitivity](docs/images/chart-oat-sensitivity.png)
+
+Against every scripted opponent the capture rate is 1.00 at every setting of barrier
+budget, move limit and pheromone decay: within the tested envelope there is no fragile
+operating point and nothing to tune. The single exception is self-play on boards of 11×11
+and larger.
+
+![Board size and horizon](docs/images/chart-horizon-interaction.png)
+
+That exception is a **horizon** effect, not a board-size limit: raising the step budget
+from 35 to 60 restores capture to 1.00 at both 11×11 and 13×13. The agreed 7×7 / 35-step
+contract sits well inside the capturing region. The notebook derives this in full.
+
+### 12.2 Per-mechanism PRDs
+
+Each documents theory, requirements and I/O, constraints and rejected alternatives, and
+success criteria with the tests that check them.
+
+| Mechanism | Document |
+|---|---|
+| Opponent-adaptive Cop | [`docs/PRD_ringbreaker.md`](docs/PRD_ringbreaker.md) |
+| Topology-first Thief | [`docs/PRD_antisqueeze.md`](docs/PRD_antisqueeze.md) |
+| Belief representation | [`docs/PRD_belief_map.md`](docs/PRD_belief_map.md) |
+| Stigmergic scent field | [`docs/PRD_scent_stigmergy.md`](docs/PRD_scent_stigmergy.md) |
+| Commit-reveal and mutual audit | [`docs/PRD_commit_reveal_audit.md`](docs/PRD_commit_reveal_audit.md) |
+| API gatekeeper and rate limiting | [`docs/PRD_api_gatekeeper.md`](docs/PRD_api_gatekeeper.md) |
+
+### 12.3 Interface and quality documentation
+
+| Document | Covers |
+|---|---|
+| [`docs/GUI-GUIDE.md`](docs/GUI-GUIDE.md) | Every screen and state, typical workflows, interaction feedback, and an honest accessibility assessment |
+| [`docs/QUALITY-25010.md`](docs/QUALITY-25010.md) | The eight ISO/IEC 25010 product-quality characteristics mapped to evidence, including two stated weak points |
+| [`docs/COST_AUDIT.md`](docs/COST_AUDIT.md) | Full token and cost ledger (§11) |
+| [`docs/PROMPTS.md`](docs/PROMPTS.md) | Prompt-engineering log: representative prompts, three iterations where the first answer was wrong, and lessons learned |
+
+---
+
+## 13. Installation, troubleshooting and contribution
+
+*(Software-guidelines §2.1 — the README doubles as the project's user manual. Day-to-day
+operations are expanded in [`docs/OPERATIONS.md`](docs/OPERATIONS.md); the interface is
+documented in [`docs/GUI-GUIDE.md`](docs/GUI-GUIDE.md).)*
+
+### 13.1 System requirements
+
+| Requirement | Value |
+|---|---|
+| Python | **3.13+** |
+| Package manager | [`uv`](https://docs.astral.sh/uv/) — required; `pip`, `venv` and bare `python -m` are not used anywhere in this project |
+| OS | Verified on Linux / WSL2. Any platform with Python 3.13 and `uv` should work; macOS and native Windows are untested |
+| Display | Only for the Tk GUI (`--gui`). Everything else, including CI, runs headless |
+| Network | Only for a live networked match; local play, tests and the GUI work fully offline |
+
+### 13.2 Installation
+
+```bash
+uv sync                                    # create the environment from the committed lockfile
+uv run pytest                              # verify: 597 tests should pass
+uv run python -m thief_agent view                # smoke-test the agent
+```
+
+`uv sync` installs the exact pinned versions in `uv.lock`, so the environment is
+reproducible. Optional extras, neither needed for tests or gameplay:
+
+```bash
+uv sync --extra gmail                      # real Gmail report sending
+uv sync --group dev                        # chart/notebook tooling (matplotlib)
+```
+
+### 13.3 Environment variables
+
+No environment variable is required to run the agent, play a local series, run the tests,
+or open the GUI. All gameplay behaviour comes from `config/`. The variables below are
+strictly optional and are read only by the subsystem named.
+
+| Variable | Read by | Effect if unset |
+|---|---|---|
+| ``THIEF_STRATEGY` / `POLICE_STRATEGY`` | strategy selector | Production default brain is used |
+| `OPENAI_API_KEY` | `advisor/client.py` | The optional LLM advisor stays disabled; moves are pure Python either way |
+| `OPENAI_MODEL` | `advisor/client.py` | Falls back to the module default |
+| `DISPLAY` | Tk GUI only | `--gui` cannot open a window; the headless renderer still works |
+
+Copy [`.env-example`](.env-example) to `.env` if you want to set any of them.
+**Never commit `.env`, `credentials.json` or `token.json`** — all three are in
+`.gitignore` and the CI secret scan fails the build if they appear.
+
+### 13.4 Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `no replayable logs found` | The directory has no `log_<game-id>_g01.json`, or the game id is wrong | Check `--dir` and `--game-id`; try `docs/evidence/G020` with `--game-id G020` |
+| The belief heatmap is a flat grid of 9s | No scent has been received yet — the step-1 prior is legitimately uniform | Pass `--replay-dir` and `--step` to load a real mid-game observation (§5.1) |
+| `--gui` exits with a Tk/display error | No X display available | Use the headless commands, or set `DISPLAY` (WSL: WSLg provides one) |
+| `TAMPERED at steps …` on your own logs | A record was modified after it was written | Expected behaviour — the log is no longer trustworthy; do not "fix" it, re-run the match |
+| `config hash mismatch` during negotiation | The peer's 14 signed terms differ from ours | Both sides must load the identical agreed `config/game.json` |
+| `protocol mismatch` / `schema mismatch` | Peer is on a different protocol or schema version | These must match exactly; `code_version` may differ freely |
+| `RateLimitError` / `QueueFullError` | The API gatekeeper is shedding load by design | Expected under burst; tune `rate_limiter_gatekeeper` in config, never in code |
+| Gmail send does nothing | Default mode is `draft`, and sending needs `token.json` | See [`docs/GMAIL-OAUTH.md`](docs/GMAIL-OAUTH.md) |
+| A test fails only on your machine | Almost always a stale environment | `uv sync` again; the suite is deterministic under fixed seeds |
+
+### 13.5 Contribution guidelines
+
+Contributions follow the same gates CI enforces — all five must pass before a change is
+merged:
+
+```bash
+uv run ruff check .                              # lint: zero violations
+uv run ruff format --check .                     # formatting
+uv run python scripts/check_line_count.py        # every tracked .py <= 150 physical lines
+uv run python scripts/secret_scan.py             # no secrets
+uv run pytest --cov                              # tests, coverage gate >= 85%
+```
+
+House rules, in priority order:
+
+1. **Never weaken a gate to make a change pass.** Split the module instead of raising the
+   line limit; add the test instead of lowering the coverage floor.
+2. **Configuration is data.** No gameplay constant is hardcoded at a call site; it belongs
+   in `config/` and the validator.
+3. **Keep the two repositories symmetric.** A change to shared machinery lands in both the
+   Police and Thief repos in the same shape.
+4. **Gameplay and presentation stay separate.** GUI, docs and reporting changes must not
+   touch `strategy/`, `domain/`, `peer/` or `interop/`.
+5. **Historical match artifacts are immutable.** Files under `docs/evidence/` record what
+   actually happened and are never edited.
+6. **Every business operation goes through the `AgentSDK` facade**, not by importing engine
+   internals.
+7. Branch per capability, meaningful commit messages, and an annotated tag for a release.
+
+### 13.6 Credits and licensing
+
+**Authors** — Amir Fadila and Eman Sarhan, group `amireman`, University of Haifa,
+*Orchestration of AI Agents*, 2026.
+
+**Third-party runtime dependencies**
+
+| Package | Used for | Licence |
+|---|---|---|
+| [`fastmcp`](https://pypi.org/project/fastmcp/) 3.4.5 | MCP server/client transport | Apache-2.0 |
+| [`openai`](https://pypi.org/project/openai/) ≥1.40 | Optional tactical advisor (disabled by default; 0 tokens used — see §11) | Apache-2.0 |
+| `google-api-python-client`, `google-auth-oauthlib` | Optional Gmail reporting extra | Apache-2.0 |
+| `pytest`, `pytest-cov`, `ruff`, `jsonschema`, `matplotlib` | Development and research tooling only | MIT / BSD-3-Clause / MIT / MIT / PSF-style |
+
+**Attribution.** The official reference implementation (*Game-P2P-Cop-Chase*, © Dr. Yoram
+Segal / GTAI) is distributed under an **Educational-Use EULA**. Its wire formats and
+protocol patterns were studied for interoperability and independently re-implemented here;
+no code or asset was copied. The full accounting is in
+[`docs/REUSE-REGISTER.md`](docs/REUSE-REGISTER.md), and the screenshots in this repository
+are captures of our own GUI, never the reference's.
+
+**Licence status.** This repository is coursework submitted for assessment and **no
+open-source licence has been granted**; all rights are reserved by the authors. Third-party
+dependencies remain under their own licences as listed above.
+
+---
+
+## 14. Submission checklist
 
 *(Appendix C.3, Table 6.)*
 

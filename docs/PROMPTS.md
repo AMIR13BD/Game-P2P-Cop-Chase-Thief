@@ -31,3 +31,67 @@ Each development prompt required: smallest safe changes, ≤150 physical lines p
 ≥85% branch coverage, ruff clean, no secrets, symmetric changes to both repos, and an
 independent review pass. The exact prompt texts live in the chat history that produced
 this repository; they are not reproduced verbatim here to avoid fabrication.
+
+## Representative development prompts and what they produced
+
+Summarised, not transcribed. Each row is a real task that produced a real commit; the
+"prompt shape" column describes what was asked, not the literal wording, and no
+conversation text is reproduced.
+
+| # | Prompt shape | What came back | Landed as |
+|---|---|---|---|
+| 1 | "Implement the board, movement rules, capture and scoring from Appendix F. Fail closed on anything the spec does not permit." | Domain layer with an explicit legality engine; illegal actions raise rather than being silently corrected | Day-1 core |
+| 2 | "Add commit-reveal over SHA-256 that is byte-compatible with the reference wire format." | `canonical_json` + `commit_of`; the canonicalisation requirement was the non-obvious part and had to be stated explicitly | `domain/crypto.py` |
+| 3 | "The Cop chases a plateau once the scent saturates. Diagnose and fix without touching the emission rule." | Diagnosis: additive emission clamped at 0.9 makes the argmax degenerate. Fix: a recursive Bayes filter with a kernel-shaped likelihood | `8c685b6` |
+| 4 | "Our Thief loses to their Cop only via barriers, never a chase. Re-derive the objective." | Distance demoted from objective to constraint; objective became reachable-area-after-one-wall | `6d99a83` |
+| 5 | "A redelivered turn double-counts the capture in TEST22. Find the real cause." | The absorbed duplicate was hiding the capture answer; fixed by honouring a terminal answer on redelivery | `8e64970` |
+| 6 | "Make every CI gate pass without weakening any gate." | Module splits to satisfy the 150-line rule; no gate thresholds were lowered | `02e5dd9` |
+| 7 | "Build the mandatory Tkinter GUI as a presentation layer only — no gameplay change." | Pure view-models plus thin Tk painters; a latent defect surfaced (see below) | `c4e1178` |
+
+## Iteration history — three cases where the first answer was wrong
+
+**A. The saturating scent field.** The first Cop maximised received scent intensity. It
+worked in early turns and then chased a ghost. The first fix attempt sharpened the
+localiser, which made things *worse* — a sharper estimate fed to a distance-first policy
+just converges faster on the wrong cell. The correct fix was to change the *estimator*
+(recursive Bayes with a ring-shaped likelihood) and, separately, to keep emitting the
+saturating field deliberately so opponents face the same wall. Recorded in
+[`PRD_belief_map.md`](PRD_belief_map.md) and [`PRD_scent_stigmergy.md`](PRD_scent_stigmergy.md).
+
+**B. The Thief that ran into corners.** Maximising Manhattan distance is the obvious
+evasion policy and it lost every barrier-driven game. Two iterations: first adding a
+corner penalty (helped marginally, still lost), then re-deriving the objective around
+survival topology — worst-case reachable area after one adversarial wall. That reframing,
+not tuning, produced the win. Recorded in [`PRD_antisqueeze.md`](PRD_antisqueeze.md).
+
+**C. The GUI that showed the wrong role.** When the mandatory Tk GUI was built, the audit
+step found that `cmd_view` had always hardcoded `role="police"` — so the *Thief* repository
+had been rendering a Police perspective. The prompt that caught it was an audit prompt
+("check the repositories, not the README claims"), not a build prompt. Fixed by taking the
+role from `NATURAL_ROLE` and making perspective follow the `Observation` structurally.
+
+## Lessons learned
+
+1. **Ask for a diagnosis before a fix.** Prompts phrased "make X pass" produced
+   symptom-level patches. Prompts phrased "explain why X fails, then fix the cause"
+   produced the three real fixes above.
+2. **State the invariants in the prompt.** Every task carried the same standing
+   constraints — ≤150 lines per file, ≥85% coverage, ruff clean, no secrets, symmetric
+   changes in both repositories. Constraints omitted from the prompt were the ones violated.
+3. **Audit prompts find what build prompts miss.** "Check the actual repository rather than
+   trusting the README" surfaced the hardcoded GUI role, stale test counts, and an unfilled
+   TODO marker inside an otherwise finished document.
+4. **A sharper input can make a bad objective worse.** Case A generalises: improving an
+   estimator only helps if the policy consuming it is right.
+5. **Keep gameplay and presentation prompts strictly separate.** The GUI work touched no
+   strategy file, which is why the counted-match behaviour could be proven unchanged at
+   blob level afterwards.
+6. **Deterministic seeds make prompting cheap.** Because every brain is reproducible under
+   a fixed seed, "this seed fails" was a complete bug report and no failure was ever
+   chased twice.
+
+## What is deliberately not here
+
+No verbatim prompt transcripts, no conversation logs, no model outputs pasted in bulk, and
+no private data. The summaries above are reconstructed from the Git history and the
+documents in `docs/`, both of which a reader can verify independently.

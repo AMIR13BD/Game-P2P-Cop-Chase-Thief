@@ -95,7 +95,7 @@ per-row scores  g1/3/5 capture 20-5, g2/4/6 survival 10-5  (both)
 ```
 
 ## 12. Independent sparring result (LIVE, two real servers)
-Our production adapter (`python -m <pkg>.interop friendly`) vs the kit's `python -m sparring.cli
+Our production adapter (`uv run python -m <pkg>.interop friendly`) vs the kit's `uv run python -m sparring.cli
 serve` over **real localhost FastMCP** (ours :8904 ↔ kit :8934):
 
 ```
@@ -174,7 +174,7 @@ App. F defaults) so the signed `terms` are byte-identical.
 ### Our side
 ```
 # TERMINAL 1 — our public server + driver (one process serves AND dials)
-python -m thief_agent.interop friendly \
+uv run python -m thief_agent.interop friendly \
     --peer <THEIR_PUBLIC_MCP_URL> \
     --group amireman --role police \
     --host 127.0.0.1 --port 8901 \
@@ -190,10 +190,10 @@ export PT_TUNNEL_HEADERS='localtonet-skip-warning: true'
 ### Their side (any compliant/official peer — e.g. the reference or the kit)
 ```
 # THEIR SERVER + DRIVER
-python -m THEIR_PACKAGE.interop friendly \
+uv run python -m THEIR_PACKAGE.interop friendly \
     --peer <OUR_PUBLIC_MCP_URL> --group THEIR_GROUP --role thief \
     --host 127.0.0.1 --port 8901 --out runs/friendly --games 6
-#   (kit peer equivalent:  python -m sparring.cli serve --peer <OUR_PUBLIC_MCP_URL> \
+#   (kit peer equivalent:  uv run python -m sparring.cli serve --peer <OUR_PUBLIC_MCP_URL> \
 #                              --role thief --group-id sparring-THEIR --await-peer)
 
 # THEIR TUNNEL
