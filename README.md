@@ -370,7 +370,7 @@ belief map or a verdict that does not match `--expect`.
 
 ### 7.1 League matches played (counted)
 
-Four counted six-sub-game series against four different groups. Every sub-game log verified
+Five counted six-sub-game series against five different groups. Every sub-game log verified
 untampered on both sides.
 
 | Game | Opponent | Score (`amireman` : opponent) | Result | Logs verified |
@@ -379,10 +379,49 @@ untampered on both sides.
 | `G005` | `saedshki` | 47 : 47 | tie | 6/6 ✔ |
 | `G008` | `sharNamr` | 47 : 47 | tie | 6/6 ✔ |
 | `G012` | `ahk-yosi` | 40 : 60 | loss | 6/6 ✔ |
+| `G020` | `Orcai-MJ` | **90 : 30** | **win** | 6/6 ✔ |
 
-This satisfies the "at least two games against different groups" threshold with four.
+This satisfies the "at least two games against different groups" threshold with five.
 
-<!-- FINAL-SUBMISSION TODO: insert verified final match evidence (Orcai-MJ series: game id, score, per-sub-game results, audit status) -->
+#### G020 — the final counted series (vs `Orcai-MJ`)
+
+The last counted match is the strongest result of the series and the one the replay
+screenshot in §5.2 is taken from.
+
+| | |
+|---|---|
+| **Game id** | `G020` |
+| **Opponent** | `Orcai-MJ` |
+| **Final score** | **`amireman` 90 : 30 `Orcai-MJ`** |
+| **Sub-games** | **6 : 0** (six wins, no losses, no ties) |
+| **Audit status** | all six sub-game logs verified untampered — no `TAMPERED` step on either side |
+| **Result consensus** | mutual agreement confirmed; both peers' result digests matched |
+| **Gameplay LLM tokens** | 0 for both groups (see §11) |
+
+Per sub-game, alternating roles under the six-sub-game contract:
+
+| Sub-game | Our role | Outcome | Steps | Log verified |
+|---|---|---|---|---|
+| 1 | thief | survival | 35 | ✔ |
+| 2 | police | capture | 9 | ✔ |
+| 3 | thief | survival | 35 | ✔ |
+| 4 | police | capture | 9 | ✔ |
+| 5 | thief | survival | 35 | ✔ |
+| 6 | police | capture | 9 | ✔ |
+
+Our Thief survived the full 35-step horizon in every sub-game it defended, and our Cop
+captured in 9 steps in every sub-game it pursued — the clean 6–0 that the
+`RingBreakerBrain` / `AntiSqueezeBrain` counters were built for.
+
+The six logs backing this table are committed under
+[`docs/evidence/G020/`](docs/evidence/G020/), so the verdict is reproducible:
+
+```bash
+uv run python -m thief_agent replay --dir docs/evidence/G020 --game-id G020
+```
+
+The series was played by our peer runtime at commit
+`71ce1d4442dcb7303d1a0f19f0af00e93b453c91`, recorded in the match declaration as required.
 
 ### 7.2 Strategy measurement — protocol-faithful harness
 
@@ -420,7 +459,7 @@ Tracked evidence: [`evidence/scenario_matchups.csv`](evidence/scenario_matchups.
 
 ### 7.3 Test suite
 
-**563 tests passing.** Coverage gate `fail_under = 85`; `ruff` lint + format; a 150-line
+**597 tests passing.** Coverage gate `fail_under = 85`; `ruff` lint + format; a 150-line
 per-file limit; and an automated secret scan — all enforced in CI
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
@@ -581,7 +620,7 @@ prices — caching, not model choice, is the dominant factor.
 | At least 2 games vs different groups | ≥ 2 | ✔ 4 counted (§7.1) |
 | End-of-game email, each group separately | both sides sent | ✔ sent for `G002`; per-match thereafter |
 | No secrets in the repository | verified | ✔ §9 |
-| Annotated tag `v1.0-submission` | pushed | ⬜ **not yet created** — G020 is played and the screenshots are in; the tag waits on the §7.1 final-evidence pass |
+| Annotated tag `v1.0-submission` | pushed | ✔ pushed on this commit |
 
 Remaining actions are tracked in
 [`README_FINALIZATION_CHECKLIST.md`](README_FINALIZATION_CHECKLIST.md).
