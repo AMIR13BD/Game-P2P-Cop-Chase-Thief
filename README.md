@@ -675,55 +675,42 @@ success criteria with the tests that check them.
 
 ### 12.4 Graphify knowledge graph / reverse engineering
 
-The final codebase was analysed with **[Graphify](https://pypi.org/project/graphifyy/)**
-(v0.9.45) and the resulting knowledge graph browsed in **Obsidian**, as recommended for
-this course. The graph was built from a pristine clone of the committed tree at the tagged
-submission commit — not the working directory — so it contains no local scratch files and
-is exactly reproducible. Extraction is AST-only: no LLM, no API key, no token cost.
+**[Graphify](https://pypi.org/project/graphifyy/) 0.9.45** was run over the final tagged
+codebase — a pristine clone of the submission commit, AST-only extraction, no LLM and no
+token cost — and the resulting knowledge graph was browsed in **Obsidian** to reverse-engineer
+the architecture. The graph holds **3,231 nodes and 7,385 edges** across 334 files in
+177 communities, and it independently confirms three structural claims: `domain` has **no
+upward dependencies** (its only 13 outbound edges reach `exceptions.py`/`constants.py`), `gui`
+is a **pure leaf** that nothing depends on except CLI wiring, and the whole system is organised
+around four shared types — `Board`, `Observation`, `Action`, `BeliefMap` — which carry 575 of
+the edges between them.
 
-**What the graph contains:** 3,231 nodes and 7,385 edges across 334 files, clustered
-into 177 communities.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/graphify/graph-visualisation.png" width="100%" alt="Graphify knowledge graph"><br>
+      <sub><b>Graphify knowledge graph</b> — full community visualisation of all 3,231 nodes.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/graphify/obsidian-graph-view.png" width="100%" alt="Obsidian graph view"><br>
+      <sub><b>Obsidian Graph View</b> — the vault's own link graph; <code>index</code>, <code>hot</code> and <code>architecture</code> are the central hubs.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/graphify/obsidian-index.png" width="100%" alt="Obsidian index"><br>
+      <sub><b>Obsidian index</b> — repository, source commit, graph totals and the top hubs ranked by degree.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/graphify/obsidian-hot.png" width="100%" alt="Obsidian hot modules"><br>
+      <sub><b>Obsidian hot modules</b> — highest-connectivity nodes as reverse-engineering investigation candidates.</sub>
+    </td>
+  </tr>
+</table>
 
-**What it revealed** (each point is read from the graph, not from the source):
-
-- The codebase is organised around four shared types — `Board` (degree 216),
-  `Observation` (163), `Action` (117) and `BeliefMap` (79) — which between them account for
-  575 edges. The top hubs are *data structures*, not behaviour, which is why the strategy
-  layer can hold many interchangeable brains that never reference each other.
-- **`domain` has no upward dependencies.** Its only 13 outbound edges go to
-  `exceptions.py` / `constants.py`. The rules of the game do not know who is playing —
-  clean layering, confirmed from the artefact rather than from intent.
-- **`gui` is a pure leaf**: nothing depends on it except the CLI wiring. This independently
-  corroborates that the Tk GUI is a presentation layer that cannot affect gameplay.
-- The `interop` (MCP) path is nearly independent of strategy (only 3 edges) — the wire
-  layer moves sealed moves and audits, not decisions.
-- `sdk` is the smallest production layer yet spans `peer`, `report`, `strategy` and `sim`:
-  the shape of a facade holding no logic of its own.
-- `advisor` depends on `strategy` but nothing depends on it — structurally an optional
-  plug-in, matching its disabled-by-default runtime behaviour.
-
-**Where the evidence lives:** [`docs/graphify/`](docs/graphify/) — which *is* an Obsidian
-vault (open that folder with "Open folder as vault").
-
-| Artefact | Path |
-|---|---|
-| Written analysis | [`docs/graphify/reverse-engineering.md`](docs/graphify/reverse-engineering.md) |
-| Vault entry point | [`docs/graphify/index.md`](docs/graphify/index.md) |
-| High-connectivity nodes | [`docs/graphify/hot.md`](docs/graphify/hot.md) |
-| Layers and dependency matrix | [`docs/graphify/architecture.md`](docs/graphify/architecture.md) |
-| Per-node pages | [`docs/graphify/nodes/`](docs/graphify/nodes/) |
-| Raw graph + Graphify report + interactive HTML | [`docs/graphify/graph/`](docs/graphify/graph/) |
-| Obsidian screenshots (index, hot, Graph View) | [`docs/graphify/README.md`](docs/graphify/README.md#screenshots) |
-| How to reproduce it | [`docs/graphify/README.md`](docs/graphify/README.md) |
-
-**Visual evidence.** The vault was opened in Obsidian and captured: the rendered
-`index.md` and `hot.md` pages, and the Obsidian **Graph View** of the vault itself. A
-headless capture of Graphify's own interactive `graph.html` is committed alongside them.
-All four are in [`docs/graphify/`](docs/graphify/) and embedded in its
-[README](docs/graphify/README.md#screenshots).
-
-The analysis also records what the graph *cannot* show — AST-only extraction misses
-dynamic wiring such as registry lookups by string and the lazy SDK export.
+Full node-level analysis, the per-layer dependency matrix, reproduction commands and the
+limits of AST-only extraction: **[`docs/graphify/README.md`](docs/graphify/README.md)** and
+[`docs/graphify/reverse-engineering.md`](docs/graphify/reverse-engineering.md).
 
 ---
 
