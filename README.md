@@ -281,48 +281,76 @@ formal: the belief map demonstrates genuine probabilistic inference under partia
 observation, and `VERIFIED OK` demonstrates that game integrity was cryptographically
 preserved.)*
 
-Both viewers are implemented and working headlessly here, and both produce the required
-output from real data. The image files themselves are **not yet captured**.
-
-<!-- FINAL-SUBMISSION TODO: insert Live GUI belief-map screenshot at docs/images/gui-belief-map.png -->
-<!-- FINAL-SUBMISSION TODO: insert Replay App VERIFIED OK screenshot at docs/images/replay-verified-ok.png -->
+Both are real Tkinter windows. Everything they draw is computed by the same modules the
+agent itself uses — the belief heatmap by `strategy/belief.py` and `domain/smell.py`, the
+integrity verdict by `gui/replay_verify.py` — so the windows are a presentation layer, never
+a second implementation. The images below are unretouched captures of those windows.
 
 ### 5.1 Live GUI — board and belief heatmap
 
-Implemented in [`gui/window.py`](src/thief_agent/gui/window.py),
-[`gui/heatmap.py`](src/thief_agent/gui/heatmap.py),
-[`gui/board_view.py`](src/thief_agent/gui/board_view.py),
-[`gui/status_banner.py`](src/thief_agent/gui/status_banner.py).
+![Thief Live GUI showing the belief heatmap over the police's position](docs/images/thief-gui-belief-map.png)
 
 ```bash
-uv run python -m thief_agent view
+# generate a deterministic local match that records both tracks, then open the window
+uv run python -m thief_agent artifacts --out /tmp/demo --game-id demo --seed 7
+uv run python -m thief_agent view --gui --replay-dir /tmp/demo --game-id demo --step 8
 ```
 
-Renders the status banner (connection, state, step, deadline), the local-truth board and the
-belief heatmap. A structural guarantee is unit-tested: `local_view` is built from an
-`Observation` alone, and `leaks_opponent_position` asserts exactly one player marker is ever
-drawn — **the GUI provably cannot reveal the opponent's cell.**
+Window: [`gui/tk_live.py`](src/thief_agent/gui/tk_live.py) and
+[`gui/tk_canvas.py`](src/thief_agent/gui/tk_canvas.py); view-model:
+[`gui/live_model.py`](src/thief_agent/gui/live_model.py); colours:
+[`gui/palette.py`](src/thief_agent/gui/palette.py).
 
-### 5.2 Replay App — per-step verification
+**What the shading means.** Each cell is shaded by *P(opponent = cell)* — bucket 0 (dark)
+to bucket 9 (bright red-orange), normalised against the posterior peak. That posterior is
+produced by the same `BeliefMap` the strategies consult, updated from the opponent's
+received scent field and nothing else. **No opponent position is ever drawn**: only one
+marker appears on the board, and it is this agent. The Thief window therefore shows the Thief's
+belief about the Cop; the Cop window in the companion repository shows the mirror image.
 
-Implemented in [`gui/replay_data.py`](src/thief_agent/gui/replay_data.py),
-[`gui/replay_verify.py`](src/thief_agent/gui/replay_verify.py),
-[`gui/replay_controls.py`](src/thief_agent/gui/replay_controls.py).
+**Turn indicator** (Chapter 7.3.2): the banner is **green `YOUR TURN`** while the protocol
+is in a move-accepting state and **grey `LOCKED`** otherwise, driven by the existing
+`status_banner.input_locked`, so the banner cannot disagree with the state machine.
+
+**Where the numbers come from.** `--replay-dir` replays a recorded match's trajectories
+through the real emission kernel (`domain/smell.step_update`) to rebuild the exact scent an
+agent perceived, then feeds it to the real `BeliefMap`
+([`gui/evidence.py`](src/thief_agent/gui/evidence.py)). Nothing is invented for the
+screenshot; the capture tool refuses to shoot a uniform map. Without `--replay-dir` the
+window opens on the step-1 opening position, whose posterior is legitimately flat.
+
+### 5.2 Replay App — stepping through a match with per-step verification
+
+![Replay viewer showing VERIFIED OK on the official G020 series](docs/images/thief-replay-verified-ok.png)
 
 ```bash
-uv run python -m thief_agent replay --dir <artifacts-dir> --game-id <GAME_ID>
+uv run python -m thief_agent replay --dir docs/evidence/G020 --game-id G020 --gui
 ```
 
-It recomputes every record's SHA-256 commitment from `(payload, nonce)` and prints
-`VERIFIED OK` only when every step verifies; any mismatch prints `TAMPERED at steps …`.
-Run against the real counted match **G012 vs `ahk-yosi`**, all six sub-games report
-`VERIFIED OK`.
+Window: [`gui/tk_replay.py`](src/thief_agent/gui/tk_replay.py); panel helpers:
+[`gui/replay_panel.py`](src/thief_agent/gui/replay_panel.py); stepping and verdict:
+[`gui/replay_model.py`](src/thief_agent/gui/replay_model.py) over the pre-existing
+[`gui/replay_verify.py`](src/thief_agent/gui/replay_verify.py).
 
-**To capture (one terminal screenshot each):** run the two commands above and photograph the
-terminal, saving to `docs/images/gui-belief-map.png` and `docs/images/replay-verified-ok.png`,
-then replace the two markers above with `![...](docs/images/...)`. For a belief map showing a
-*peaked* posterior rather than the uniform step-1 prior, take the GUI capture from a live
-`netplay` session mid-game.
+**Previous** and **Next** walk the reconstructed frames (disabling themselves at the ends);
+**Sub-game** cycles through the six logs; the counter reports `frame N / M (step S)`; the
+board shows the recorded track with recency shading.
+
+**The badge is a result, not a label.** For every record the viewer recomputes
+`SHA-256(nonce, payload)` and compares it with the stored commitment. It paints green
+`VERIFIED OK` only when every step reconciles, and red `TAMPERED at steps …` otherwise. The
+capture above is the **official counted match G020 vs `Orcai-MJ`** (90 : 30, 6–0), whose
+logs are committed under [`docs/evidence/G020/`](docs/evidence/G020/); all six sub-games
+verify.
+
+To show that the green badge is earned rather than hard-coded, the same viewer over the
+same logs with one record deliberately corrupted in memory:
+
+![Replay viewer showing TAMPERED after a deliberate corruption](docs/images/thief-replay-tampered.png)
+
+**Reproducing the images.** [`scripts/capture_gui.py`](scripts/capture_gui.py) opens the
+window and photographs it with `ffmpeg -f x11grab`; it aborts rather than capture a uniform
+belief map or a verdict that does not match `--expect`.
 
 ---
 
@@ -414,6 +442,8 @@ uv run python scripts/check_line_count.py       # size gate
 | PRD | [`docs/PRD.md`](docs/PRD.md) |
 | PLAN | [`docs/PLAN.md`](docs/PLAN.md) |
 | TODO | [`docs/TODO.md`](docs/TODO.md) |
+| Screenshots | [`docs/images/`](docs/images/) |
+| Replay evidence (official G020) | [`docs/evidence/G020/`](docs/evidence/G020/) |
 
 Source layout (`src/thief_agent/`): `domain/` board, rules, capture, scent, scoring, crypto ·
 `strategy/` brains, belief, firewall · `peer/` sealing, turn engine, deadline, watchdog ·
@@ -496,8 +526,8 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 | Two GitHub repos accessible to the lecturer | public / shared | ✔ Police + Thief |
 | Cross-link between repos | present both ways | ✔ §6 |
 | README report components (§9.4.2) | complete in both repos | ✔ §1–§6 |
-| Belief-map (GUI) screenshot | attached | ⬜ tooling ready, image not yet captured — §5.1 |
-| Replay screenshot with `VERIFIED OK` | attached | ⬜ tooling ready and verifying, image not yet captured — §5.2 |
+| Belief-map (GUI) screenshot | attached | ✔ [`docs/images/thief-gui-belief-map.png`](docs/images/thief-gui-belief-map.png) — §5.1 |
+| Replay screenshot with `VERIFIED OK` | attached | ✔ [`docs/images/thief-replay-verified-ok.png`](docs/images/thief-replay-verified-ok.png) — §5.2 |
 | At least 2 games vs different groups | ≥ 2 | ✔ 4 counted (§7.1) |
 | End-of-game email, each group separately | both sides sent | ✔ sent for `G002`; per-match thereafter |
 | No secrets in the repository | verified | ✔ §9 |

@@ -5,10 +5,10 @@ outstanding, and all of them depend on the remaining league match(es) being play
 
 | # | Action | Where |
 |---|---|---|
-| 1 | Play the remaining counted series and record the verified result | league |
+| 1 | ~~Play the remaining counted series~~ **DONE** — G020 vs `Orcai-MJ`, 90 : 30, 6–0, all audits verified | league |
 | 2 | Insert the final match evidence — game id, score, per-sub-game results, audit status | `README.md` §7.1, replacing the `FINAL-SUBMISSION TODO` marker |
-| 3 | Capture the **Live GUI belief-map** screenshot → `docs/images/gui-belief-map.png`, then replace the marker in §5 with an image link | `uv run python -m thief_agent view` (for a peaked posterior, capture mid-game from a live `netplay` session) |
-| 4 | Capture the **Replay `VERIFIED OK`** screenshot → `docs/images/replay-verified-ok.png`, then replace the marker in §5 with an image link | `uv run python -m thief_agent replay --dir <artifacts-dir> --game-id <GAME_ID>` |
+| 3 | ~~Capture the **Live GUI belief-map** screenshot~~ **DONE** → `docs/images/thief-gui-belief-map.png`, embedded in §5.1 | `uv run python scripts/capture_gui.py live --dir <evidence> --game-id <id> --role thief --out docs/images/thief-gui-belief-map.png` |
+| 4 | ~~Capture the **Replay `VERIFIED OK`** screenshot~~ **DONE** → `docs/images/thief-replay-verified-ok.png` (real G020), embedded in §5.2 | `uv run python scripts/capture_gui.py replay --dir docs/evidence/G020 --game-id G020 --expect "VERIFIED OK" --out docs/images/thief-replay-verified-ok.png` |
 | 5 | Confirm the end-of-game report email was sent for the final match (both groups send separately) | `uv run python -m thief_agent gmail --action send --dir <dir> --game-id <GAME_ID>` |
 | 6 | Update the test count in §7.3 only if code changed | `uv run pytest` |
 | 7 | Final secret scan | `uv run python scripts/secret_scan.py` |

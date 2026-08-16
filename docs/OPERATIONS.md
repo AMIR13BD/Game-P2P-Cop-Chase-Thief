@@ -26,15 +26,25 @@ from `PT_SIGNER_KEY` (hex) in the environment (never committed/logged).
 ## Replay viewer (P20)
 ```bash
 uv run python -m thief_agent replay --dir <artifacts-dir> --game-id <gid>
+uv run python -m thief_agent replay --dir docs/evidence/G020 --game-id G020 --gui
 ```
+`--gui` opens the Tkinter Replay Viewer: Previous/Next stepping, sub-game cycling, and a
+green `VERIFIED OK` / red `TAMPERED` badge driven by the same per-record SHA-256 check.
 Prints, per sub-game, `frames=N VERIFIED OK` (or `TAMPERED at steps ...`) and renders the
 post-audit truth board. Malformed/missing logs are handled safely.
 
-## GUI (P21, headless text)
+## Live GUI (P21) — Tkinter window or headless text
 ```bash
-uv run python -m thief_agent view          # local-truth board + belief heatmap
+uv run python -m thief_agent view                       # text board + belief heatmap
+uv run python -m thief_agent view --gui                 # Tkinter window (opening position)
+
+# a peaked belief map needs a match that recorded both tracks:
+uv run python -m thief_agent artifacts --out /tmp/demo --game-id demo --seed 7
+uv run python -m thief_agent view --gui --replay-dir /tmp/demo --game-id demo --step 8
 ```
-The live view shows only the local player's truth and never the opponent's position.
+The window shows the belief heatmap over the opponent's likely cells, plus a green
+`YOUR TURN` / grey `LOCKED` turn indicator. Either mode shows only the local player's
+truth and never the opponent's position. `--role` overrides the repository's own role.
 
 ## Gmail reporting (P23)
 ```bash

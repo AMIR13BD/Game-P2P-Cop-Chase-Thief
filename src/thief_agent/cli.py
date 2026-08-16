@@ -50,9 +50,19 @@ def build_parser() -> argparse.ArgumentParser:
     rp = sub.add_parser("replay", help="replay a game's artifacts with per-step verification")
     rp.add_argument("--dir", required=True)
     rp.add_argument("--game-id", dest="game_id", required=True)
+    rp.add_argument("--gui", action="store_true", help="open the Tk Replay Viewer window")
+    rp.add_argument("--hold-ms", dest="hold_ms", type=int, default=0, help="auto-close after N ms")
     rp.set_defaults(func=commands.cmd_replay)
 
-    vw = sub.add_parser("view", help="render the local-truth board + belief heatmap (headless GUI)")
+    vw = sub.add_parser("view", help="live board + belief heatmap (--gui for the Tk window)")
+    vw.add_argument("--gui", action="store_true", help="open the Tk Live GUI window")
+    vw.add_argument("--role", choices=["police", "thief"], default=None, help="default: own role")
+    vw.add_argument("--replay-dir", dest="replay_dir", default=None, help="recorded evidence dir")
+    vw.add_argument("--game-id", dest="game_id", default=None, help="game id inside --replay-dir")
+    vw.add_argument("--sub-game", dest="sub_game", type=int, default=1)
+    vw.add_argument("--step", type=int, default=None, help="recorded step (default: last frame)")
+    vw.add_argument("--state", default="MOVE", help="protocol state driving the turn indicator")
+    vw.add_argument("--hold-ms", dest="hold_ms", type=int, default=0, help="auto-close after N ms")
     vw.set_defaults(func=commands.cmd_view)
 
     gm = sub.add_parser(
