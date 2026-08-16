@@ -30,7 +30,8 @@ Department of Computer Science, *Orchestration of AI Agents*, final project 2026
 8. [Repository contents](#8-repository-contents)
 9. [Security, secrets and integrity](#9-security-secrets-and-integrity)
 10. [Reproducibility](#10-reproducibility)
-11. [Submission checklist](#11-submission-checklist)
+11. [Token usage and project cost](#11-token-usage-and-project-cost)
+12. [Submission checklist](#12-submission-checklist)
 
 ---
 
@@ -444,6 +445,7 @@ uv run python scripts/check_line_count.py       # size gate
 | TODO | [`docs/TODO.md`](docs/TODO.md) |
 | Screenshots | [`docs/images/`](docs/images/) |
 | Replay evidence (official G020) | [`docs/evidence/G020/`](docs/evidence/G020/) |
+| Cost ledger | [`docs/COST_AUDIT.md`](docs/COST_AUDIT.md) |
 
 Source layout (`src/thief_agent/`): `domain/` board, rules, capture, scent, scoring, crypto ·
 `strategy/` brains, belief, firewall · `peer/` sealing, turn engine, deadline, watchdog ·
@@ -517,7 +519,55 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 
 ---
 
-## 11. Submission checklist
+## 11. Token usage and project cost
+
+*(Full ledger with sources, deduplication method and reproduction steps:
+[`docs/COST_AUDIT.md`](docs/COST_AUDIT.md).)*
+
+| Category | Usage | Cost basis | Cost |
+|---|---:|---|---:|
+| Development LLM (Claude Code) | 1,621,114,159 tokens | Subscription — no per-project charge | **$0.00** actual |
+| *— same work at public API list prices* | *4,155 calls, Opus-tier* | *$5/$25 per MTok; cache write 1.25×/2×, read 0.1×* | *$1,308.57 est.* |
+| Runtime gameplay LLM (27 games) | 0 tokens | Offline hint templates; deterministic moves | **$0.00** |
+| OpenAI advisor | 0 tokens | Never invoked — no key configured | **$0.00** |
+| Cloudflare Quick Tunnels | ~30 ephemeral tunnels | Free quick tunnels (no account) | **$0.00** |
+| Gmail API | 12 sends | Not metered in money; 100 quota units/send | **$0.00** |
+| GitHub — 2 private repos + CI | 71 runs, ≈107 min | Within included Actions allowance | **$0.00** |
+| **Total known actual cost** | | | **$0.00** |
+| **Total API-equivalent estimate** | | | **$1,308.57** |
+
+**Measured.** Every token figure is read from a machine-written usage record — Claude Code's
+per-request `usage` objects, and the `tokens_total` each sub-game writes into its own summary.
+Nothing is inferred from conversation length.
+
+**Estimated.** Only the $1,308.57. It is what the development work *would* have cost at public
+per-token list prices, computed per model from recorded token counts. It is **not** money that was
+spent: Claude Code ran on a subscription, and no cost field exists in the local session data.
+Actual and API-equivalent figures are kept in separate rows and never summed.
+
+**Unknown — deliberately not counted as zero.** The subscription fee (real, but not divisible into a
+defensible per-project share), any development predating local session logging — which makes the
+token figure a **lower bound** — electricity and local compute (never metered), and human time.
+`docs/COST_AUDIT.md` §7 lists these in full.
+
+**Double counting.** The same work is recorded in several places, so raw sums would be wrong twice
+over. Claude Code records were deduplicated on `message.id` (**5,527** duplicates removed — resumed
+and forked sessions replay earlier messages); gameplay records on
+`(game_id, sub_game_number, role)` (**240** removed across 965 JSON files); Gmail markers on
+`game_id` (24 files → 12 sends).
+
+**Why the runtime cost is zero.** Verbal hints come from offline templates and every move decision
+is deterministic, so a full six-sub-game series consumes no inference at all. The official G020
+series against `Orcai-MJ` reports `tokens_total: 0` in all six sub-games — one instance of a
+property that holds across all 27 games recorded here.
+
+**Where the development cost actually went.** 97.4% of the token volume is *cache reads*, billed at
+one-tenth of input rate. Without prompt caching the same work would have been roughly $7,900 at list
+prices — caching, not model choice, is the dominant factor.
+
+---
+
+## 12. Submission checklist
 
 *(Appendix C.3, Table 6.)*
 
