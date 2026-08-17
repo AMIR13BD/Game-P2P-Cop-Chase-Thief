@@ -19,7 +19,7 @@ method is reproducible from the description in each section.
 | Gameplay LLM (all 27 games) | 0 tokens | Offline hint templates only | **$0.00** | $0.00 |
 | Cloudflare Quick Tunnels | ~30 ephemeral tunnels | Free tier, no account required | **$0.00** | — |
 | Gmail API | 12 sends | Free; no per-message charge | **$0.00** | — |
-| GitHub (repos + Actions) | 71 CI runs, ~107 min | Within included Actions allowance | **$0.00** | — |
+| GitHub (repos + Actions) | 2 public repos, 99 CI runs, ~179 min | Free and unmetered on public repos | **$0.00** | — |
 | **Total known actual cost** | | | **$0.00** | |
 | **Total API-equivalent estimate** | | | | **$1,308.57** |
 
@@ -133,8 +133,8 @@ count. Deduplication is the difference between an audit and a guess.
 |---|---|---|
 | **Cloudflare Quick Tunnels** | ~30 ephemeral `trycloudflare.com` endpoints for peer-to-peer matches | Quick tunnels are anonymous and free — no account, no subscription, no metered egress. $0 is supported by the product's terms, not assumed. |
 | **Gmail API** | 12 end-of-game report sends (24 markers → 12 after dedup) | The Gmail API is not metered in money; it is rate-limited in quota units. A send costs 100 units against a 1,000,000,000-unit daily quota — about 0.0001% of one day's allowance. |
-| **GitHub — repositories** | 2 private repositories | Private repositories are included at no charge on current GitHub plans. |
-| **GitHub — Actions** | 71 CI runs, ≈107 minutes of wall-clock across both repos | Private-repository Actions consume included minutes (2,000/month on the Free plan). 107 minutes is ~5% of that. **Caveat:** the API token available to this audit cannot read account billing, so this is measured usage against a published allowance, not a confirmed invoice. |
+| **GitHub — repositories** | 2 public repositories | Public repositories are free on GitHub. (They were private during development; made public for submission.) |
+| **GitHub — Actions** | 99 CI runs, ≈179 minutes of wall-clock across both repos | Actions minutes are **free and unmetered on public repositories**, so this is $0 by policy rather than by allowance. While the repositories were private the same usage sat well inside the 2,000 min/month Free-plan allowance. |
 
 ---
 
@@ -152,7 +152,6 @@ Listed rather than folded into `$0`, because unknown and zero are different clai
 - **Electricity and local compute.** Never metered, so no figure is offered. Assigning one would be
   fabrication.
 - **Human time.** Out of scope for an API-cost audit.
-- **GitHub account plan.** Not readable with the available token scopes (see §6).
 
 ---
 

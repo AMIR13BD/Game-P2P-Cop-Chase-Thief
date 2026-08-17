@@ -567,13 +567,13 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 
 | Category | Usage | Cost basis | Cost |
 |---|---:|---|---:|
-| Development LLM (Claude Code) | 1,621,114,159 tokens | Subscription — no per-project charge | **$0.00** actual |
+| Development LLM (Claude Code) | 1,621,114,159 tokens *(snapshot; lower bound)* | Subscription — no per-project charge | **$0.00** actual |
 | *— same work at public API list prices* | *4,155 calls, Opus-tier* | *$5/$25 per MTok; cache write 1.25×/2×, read 0.1×* | *$1,308.57 est.* |
 | Runtime gameplay LLM (27 games) | 0 tokens | Offline hint templates; deterministic moves | **$0.00** |
 | OpenAI advisor | 0 tokens | Never invoked — no key configured | **$0.00** |
 | Cloudflare Quick Tunnels | ~30 ephemeral tunnels | Free quick tunnels (no account) | **$0.00** |
 | Gmail API | 12 sends | Not metered in money; 100 quota units/send | **$0.00** |
-| GitHub — 2 private repos + CI | 71 runs, ≈107 min | Within included Actions allowance | **$0.00** |
+| GitHub — 2 public repos + CI | 99 runs, ≈179 min | Public-repository Actions are free and unmetered | **$0.00** |
 | **Total known actual cost** | | | **$0.00** |
 | **Total API-equivalent estimate** | | | **$1,308.57** |
 
@@ -631,16 +631,29 @@ It is never presented as league play; the counted results live in §7.1.
 
 ![Paired strategy benchmark](docs/images/chart-strategy-benchmark.png)
 
-Both production brains beat their frozen baselines with non-overlapping 95% intervals —
-Cop 0.2317 → 0.4867, Thief 0.7683 → 0.9150 — with zero illegal and zero technical outcomes
-across 3,600 scenario-plays.
+*Method.* Six matchups, 600 scenarios each, varying grid size, barrier budget and move
+limit. `base` is the frozen baseline brain, `cand` the candidate that became production.
+The design is **paired**: both arms play the *same* scenario set, so scenario difficulty
+cancels out and the comparison is within-scenario rather than between samples. Bars show
+the win rate for the named role — capture rate for a Cop row, survival rate for a Thief
+row — with Wilson 95% intervals, which stay meaningful near 0 and 1 where the ordinary
+normal interval collapses.
+
+*Result.* Both production brains beat their frozen baselines with non-overlapping
+intervals — Cop 0.2317 → 0.4867, Thief 0.7683 → 0.9150 — and across all 3,600
+scenario-plays there were **zero illegal actions and zero technical losses**, which matters
+as much as the rates: a strategy that won by emitting illegal moves would be worthless once
+the firewall degraded them in a real match. Row `D` is the candidate playing *itself*, which
+is why its two rates are complements.
 
 ![OAT sensitivity](docs/images/chart-oat-sensitivity.png)
 
-Against every scripted opponent the capture rate is 1.00 at every setting of barrier
-budget, move limit and pheromone decay: within the tested envelope there is no fragile
-operating point and nothing to tune. The single exception is self-play on boards of 11×11
-and larger.
+One line per opponent (three scripted brains plus `self`, our own Thief), sweeping one
+parameter at a time around the agreed contract, 200 seeds per point. Against every scripted
+opponent the capture rate is 1.00 at **every** setting of barrier budget, move limit and
+pheromone decay — within the tested envelope there is no fragile operating point and nothing
+to tune. Reporting that flatness is more useful than hunting for a curve. The single
+exception is `self` on boards of 11×11 and larger, which the next chart isolates.
 
 ![Board size and horizon](docs/images/chart-horizon-interaction.png)
 
@@ -675,15 +688,19 @@ success criteria with the tests that check them.
 
 ### 12.4 Graphify knowledge graph / reverse engineering
 
-**[Graphify](https://pypi.org/project/graphifyy/) 0.9.45** was run over the final tagged
-codebase — a pristine clone of the submission commit, AST-only extraction, no LLM and no
-token cost — and the resulting knowledge graph was browsed in **Obsidian** to reverse-engineer
-the architecture. The graph holds **3,231 nodes and 7,385 edges** across 334 files in
-177 communities, and it independently confirms three structural claims: `domain` has **no
-upward dependencies** (its only 13 outbound edges reach `exceptions.py`/`constants.py`), `gui`
-is a **pure leaf** that nothing depends on except CLI wiring, and the whole system is organised
-around four shared types — `Board`, `Observation`, `Action`, `BeliefMap` — which carry 575 of
-the edges between them.
+**[Graphify](https://pypi.org/project/graphifyy/) 0.9.45** was run over a pristine clone of
+the committed tree — AST-only extraction, no LLM, no token cost — and the resulting knowledge
+graph was browsed in **Obsidian** to reverse-engineer the architecture. The snapshot analysed
+is commit `efde472` (recorded in [`docs/graphify/index.md`](docs/graphify/index.md)); every
+commit since has added documentation and the graph tooling only — no `src/`, `config/` or
+`schemas/` file has changed — so the structure described below is current.
+
+The graph holds **3,231 nodes and 7,385 edges** across 334 files in 177 communities, and
+it independently confirms three structural claims: `domain` has **no upward dependencies**
+(its only 13 outbound edges reach `exceptions.py`/`constants.py`), `gui` is a **pure leaf**
+that nothing depends on except CLI wiring, and the system is organised around four shared
+types — `Board`, `Observation`, `Action`, `BeliefMap` — which carry 575 of the edges between
+them.
 
 <table>
   <tr>
@@ -844,8 +861,8 @@ dependencies remain under their own licences as listed above.
 | README report components (§9.4.2) | complete in both repos | ✔ §1–§6 |
 | Belief-map (GUI) screenshot | attached | ✔ [`docs/images/thief-gui-belief-map.png`](docs/images/thief-gui-belief-map.png) — §5.1 |
 | Replay screenshot with `VERIFIED OK` | attached | ✔ [`docs/images/thief-replay-verified-ok.png`](docs/images/thief-replay-verified-ok.png) — §5.2 |
-| At least 2 games vs different groups | ≥ 2 | ✔ 4 counted (§7.1) |
-| End-of-game email, each group separately | both sides sent | ✔ sent for `G002`; per-match thereafter |
+| At least 2 games vs different groups | ≥ 2 | ✔ 5 counted, 5 different groups (§7.1) |
+| End-of-game email, each group separately | both sides sent | ✔ sent for all five counted matches (`G002`, `G005`, `G008`, `G012`, `G020`) |
 | No secrets in the repository | verified | ✔ §9 |
 | Annotated tag `v1.0-submission` | pushed | ✔ pushed on this commit |
 
