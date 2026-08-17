@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from . import ids
 from .artifacts import group_block
-from .consensus import consensus_sha
+from .consensus import LEGACY, consensus_sha
 
 # The reference result's final_result keys — the export is pruned to EXACTLY these so the
 # demo JSON is key-for-key identical to the reference. Scoring still computes every value;
@@ -25,10 +25,10 @@ _REF_FINAL_KEYS = (
 )
 
 
-def _canonical_fingerprint(game_id: str, game_uid: str, sub_games: list) -> str:
-    """OUR side of the AGREED consensus digest over {game_id, game_uid, sub_games}; the shared
-    ``interop.consensus`` builder is the single source of truth (identical bytes on both peers)."""
-    return consensus_sha(game_id, game_uid, sub_games)
+def _canonical_fingerprint(gid: str, guid: str, sub_games: list, profile: str = LEGACY) -> str:
+    """OUR side of the AGREED consensus digest; the shared ``interop.consensus`` builder is the
+    single source of truth (identical bytes on both peers) and owns the per-pairing profile."""
+    return consensus_sha(gid, guid, sub_games, profile)
 
 
 def _mutual_clean(sub_games: list) -> bool:
@@ -84,7 +84,10 @@ def enrich_result(
     results_agreed = _results_agreed(result_doc["sub_games"])
     sha_match = bool(c.get("sha_match"))
     local_sha = c.get("sha256") or _canonical_fingerprint(
-        result_doc["game_id"], result_doc["game_uid"], result_doc["sub_games"]
+        result_doc["game_id"],
+        result_doc["game_uid"],
+        result_doc["sub_games"],
+        c.get("profile", LEGACY),
     )
     result_doc["mutual_agreement"] = {
         "confirmed": logs_clean and results_agreed and sha_match,

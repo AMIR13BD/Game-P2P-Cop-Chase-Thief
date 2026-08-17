@@ -4,7 +4,6 @@ explicit non-lecturer address (via the counted should_send bypass); official mod
 the lecturer default. Any Gmail failure keeps all artifacts (nothing is deleted)."""
 
 import json
-import os
 from argparse import Namespace
 
 from ..infra import gmail_auth as ga
@@ -50,6 +49,8 @@ def official_email(out: str, game_id: str) -> None:
     except RuntimeError as exc:
         print(f"  EMAIL FAILED: {exc}; result saved, nothing sent.")
         return
-    marker = os.path.join(out, f"gmail_sent_{game_id}.json")
+    # game_id is opponent-derived: a marker resolving onto an unrelated existing
+    # file would silently report "already sent" and skip the one mandatory email.
+    marker = gr.artifact_path(out, f"gmail_sent_{game_id}.json")
     res = gr.send_report(service, msg, marker)  # idempotent: exactly one email
     print(f"  lecturer_report_sent={res['status']} id={res.get('message_id')} to={recipient}")

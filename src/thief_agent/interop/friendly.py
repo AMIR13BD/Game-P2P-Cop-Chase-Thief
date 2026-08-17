@@ -13,15 +13,16 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
-from ..domain.crypto import canonical_json
-from .artifacts import build_config, build_declaration, build_log, build_result
+from .artifacts_io import emit_artifacts
 from .client import McpTransport
+from .consensus import LEGACY
 from .series import identity_for, mcp_servers_for, run_series
 from .server import start_peer_server
-from .submission import enrich_result
 
 MATCH_MODE = "friendly"
 LECTURER_REPORT_SENT = False  # a friendly run can never flip this; there is no sender wired
+
+__all__ = ["FriendlyResult", "emit_artifacts", "run_friendly"]
 
 
 @dataclass
@@ -34,58 +35,7 @@ class FriendlyResult:
     clean: bool = False
     match_mode: str = MATCH_MODE
     lecturer_report_sent: bool = LECTURER_REPORT_SENT
-
-
-def _write(path: Path, doc: dict) -> Path:
-    path.write_bytes(canonical_json(doc).encode("utf-8") + b"\n")
-    return path
-
-
-def emit_artifacts(out_dir: Path, series, terms: dict, ended: str = "") -> tuple[list, dict]:
-    """Write the four official artifacts for a completed series into one flat directory."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    gid, guid = series.game_id, series.game_uid
-    ours = series.own_identity["group_id"]
-    theirs = series.peer_identity.get("group_id", "opponent")
-    commits = {
-        ours: series.own_identity.get("github_commit", ""),
-        theirs: series.peer_identity.get("github_commit", ""),
-    }
-    started = series.summaries[0]["started_at"] if series.summaries else ""
-    paths = [
-        _write(
-            out_dir / f"declaration_{gid}.json",
-            build_declaration(
-                gid,
-                guid,
-                series.own_identity,
-                series.peer_identity,
-                len(series.summaries),
-                started,
-                ended,
-            ),
-        )
-    ]
-    for summary in series.summaries:
-        n = summary["sub_game_number"]
-        paths.append(
-            _write(out_dir / f"config_{gid}_g{n:02d}.json", build_config(terms, gid, guid, n))
-        )
-        paths.append(
-            _write(
-                out_dir / f"log_{gid}_g{n:02d}.json", build_log(summary, gid, guid, ours, theirs)
-            )
-        )
-    result_doc = build_result(gid, guid, ours, theirs, series.summaries, commits)
-    consensus = {
-        "sha256": series.consensus_sha,
-        "peer_sha256": series.peer_consensus_sha,
-        "sha_match": series.sha_match,
-    }
-    args = (series.summaries, series.own_identity, series.peer_identity, consensus)
-    result_doc = enrich_result(result_doc, *args)
-    paths.append(_write(out_dir / f"result_{gid}.json", result_doc))
-    return paths, result_doc
+    consensus_profile: str = LEGACY  # run metadata; never enters the signed terms
 
 
 def run_friendly(
@@ -106,6 +56,7 @@ def run_friendly(
     public_mcp_url: str | None = None,
     listener=None,
     game_id: str | None = None,
+    consensus_profile: str = LEGACY,
 ) -> FriendlyResult:
     """Stand up our server, dial the opponent, play a full friendly series, write artifacts.
 
@@ -130,6 +81,7 @@ def run_friendly(
             listener=listener,
             turn_timeout=turn_timeout,
             game_id=game_id,
+            consensus_profile=consensus_profile,
         )
     finally:
         # Keep our server alive until the peer's FINAL submit_audit has flushed (fixes the
@@ -147,4 +99,5 @@ def run_friendly(
         artifacts=paths,
         result_doc=result_doc,
         clean=clean,
+        consensus_profile=consensus_profile,
     )

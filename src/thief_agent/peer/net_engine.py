@@ -8,6 +8,7 @@ from ..domain.crypto import seal
 from ..domain.protocol import build_payload
 from ..domain.rules import barrier_cell
 from ..domain.rules import step as step_move
+from ..shared.wirecheck import as_cell, scent_cells
 from ..strategy.base import Observation
 from ..strategy.firewall import enforce
 from ..strategy.hint_filter import sanitize
@@ -19,7 +20,8 @@ def _grid_out(g: dict) -> dict:
 
 
 def _grid_in(d: dict) -> dict:
-    return {tuple(int(x) for x in k.split(",")): v for k, v in (d or {}).items()}
+    """Total: a malformed cell is dropped, never raised (see shared.wirecheck)."""
+    return scent_cells(d)
 
 
 class PeerHalf:
@@ -135,11 +137,14 @@ class PeerHalf:
         return cap.barrier_captures(cell, self.pos) or cap.thief_trapped(self.pos, self.board)
 
     def receive(self, msg: dict) -> bool:
-        """Absorb opponent public message; apply any declared barrier; return True if
-        their barrier or capture-claim captures me."""
-        self.recv_hint = msg.get("hint", "")
-        self.recv_scent = _grid_in(msg.get("scent"))
+        """Absorb opponent public message; apply any declared barrier; return True if their
+        barrier or capture-claim captures me. Everything inbound is PARSED before anything is
+        stored: a partly applied turn cannot be rolled back, and the peer is untrusted."""
+        hint = msg.get("hint", "")
+        scent = _grid_in(msg.get("scent"))
+        claim = as_cell(msg.get("claim"))
         caught_by_barrier = self._apply_barrier(msg.get("barrier_placed"))
-        claim = msg.get("claim")
-        caught_by_claim = self.role == "thief" and claim is not None and tuple(claim) == self.pos
+        caught_by_claim = self.role == "thief" and claim is not None and claim == self.pos
+        self.recv_hint = hint if isinstance(hint, str) else ""
+        self.recv_scent = scent
         return bool(caught_by_barrier or caught_by_claim)

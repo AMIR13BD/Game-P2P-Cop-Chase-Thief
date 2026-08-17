@@ -3,7 +3,6 @@ send. Draft/dry-run never sends. Send is gated on six sub-games + a confirmed fi
 audit, is idempotent, and fails clearly (BLOCKED-EXTERNAL) when OAuth files are absent."""
 
 import json
-import os
 
 from . import gmail_auth as ga
 from . import gmail_report as gr
@@ -18,7 +17,7 @@ def _body(gid: str) -> str:
 
 
 def _dryrun(args, st, name, msg) -> int:
-    out = os.path.join(args.dir, f"gmail_dryrun_{args.game_id}.json")
+    out = gr.artifact_path(args.dir, f"gmail_dryrun_{args.game_id}.json")
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(
             {
@@ -81,7 +80,7 @@ def run(args) -> int:
     except RuntimeError as exc:
         print(exc)
         return 2
-    marker = os.path.join(args.dir, f"gmail_sent_{args.game_id}.json")
+    marker = gr.artifact_path(args.dir, f"gmail_sent_{args.game_id}.json")
     res = gr.send_report(service, msg, marker)
     print(f"gmail {res['status']} message_id={res.get('message_id')}")
     return 0

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 from ..shared.gitinfo import current_commit
-from . import DEFAULT_GROUP_ID
+from .cli_args import build_parser as _build_parser
 from .friendly import run_friendly
 from .terms import default_terms, validate_terms
 
@@ -47,6 +47,7 @@ def _friendly(args) -> int:
         turn_timeout=args.turn_timeout,
         public_mcp_url=args.public_mcp_url or None,
         game_id=args.game_id or None,
+        consensus_profile=args.consensus_profile,
         listener=lambda e: print(f"  [{e.get('type')}] {e}") if args.verbose else None,
     )
     print(f"\n  game_id  {result.game_id}\n  game_uid {result.game_uid}")
@@ -58,6 +59,7 @@ def _friendly(args) -> int:
             f"  {s['sub_game_number']:>3}  {s['role']:<7} {s['result']:<10} "
             f"{s['steps']:>4}  {verdict}"
         )
+    print(f"  consensus_profile {result.consensus_profile}")
     fr = result.result_doc.get("final_result", {})
     print(f"\n  totals {fr.get('total_score')}  winner {fr.get('winner_group') or 'tie'}")
     print(f"  {len(result.artifacts)} artifacts under {Path(args.out).resolve()}")
@@ -81,63 +83,8 @@ def _friendly(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(
-        prog="python -m thief_agent.interop",
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    sub = ap.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("friendly", help="play a full official friendly series (no email)")
-    p.add_argument("--peer", required=True, help="the opponent's MCP URL")
-    p.add_argument("--group", default=DEFAULT_GROUP_ID)
-    p.add_argument(
-        "--role",
-        default="police",
-        choices=["police", "thief"],
-        help="our natural role in sub-game 1 (roles alternate); use the side "
-        "COMPLEMENTARY to the opponent's",
-    )
-    p.add_argument("--host", default="127.0.0.1")
-    p.add_argument("--port", type=int, default=8901)
-    p.add_argument("--token", default="", help="optional shared bearer token (off by default)")
-    p.add_argument(
-        "--public-mcp-url",
-        default="",
-        help="our PUBLIC MCP URL (e.g. the Cloudflare tunnel) to advertise in the "
-        "negotiation identity's mcp_servers; required by peers that build a pre-game "
-        "declaration (e.g. sharNamr). Runtime value — never hardcoded.",
-    )
-    p.add_argument("--out", default="runs/interop")
-    p.add_argument(
-        "--game-id",
-        dest="game_id",
-        default=None,
-        help="game_id AGREED WITH THE PEER out-of-band as the artifact filename base (e.g. "
-        "'G002'); omit to derive '<groupA>-vs-<groupB>' locally. game_uid is always derived.",
-    )
-    p.add_argument("--games", type=int, default=6)
-    p.add_argument("--seed", type=int, default=1234)
-    p.add_argument(
-        "--commit",
-        default=None,
-        help="github_commit for the audit Step-0 record; default is the real HEAD SHA",
-    )
-    p.add_argument("--turn-timeout", type=float, default=180.0)
-    p.add_argument(
-        "--counted",
-        action="store_true",
-        help="OFFICIAL: same friendly flow; after a clean final audit, email the result JSON",
-    )
-    p.add_argument(
-        "--demo-email-recipient",
-        dest="demo_email_recipient",
-        default=None,
-        help="DEMO ONLY: after a clean 6-game run, auto-email the generated result JSON to "
-        "this address (never the lecturer). Omit to send nothing.",
-    )
-    p.add_argument("--verbose", action="store_true")
-    p.set_defaults(func=_friendly)
-    return ap
+    """The interop parser, wired to this module's runner (see cli_args for the flags)."""
+    return _build_parser(_friendly)
 
 
 def main(argv: list[str] | None = None) -> int:

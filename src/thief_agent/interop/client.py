@@ -9,6 +9,7 @@ hardcoded host, provider or opponent name. Tunnel headers can never override
 
 import asyncio
 import contextlib
+import json
 import queue
 import time
 
@@ -17,10 +18,28 @@ from fastmcp.client.transports import StreamableHttpTransport
 
 from ..exceptions import NetworkError
 from ..infra.tunnel import tunnel_headers
+from .agree import AgreementMixin
 from .server import PeerInboxes
 
 
-class McpTransport:
+def _reply_payload(result: object) -> object:
+    """The structured body of a tool reply, or None. Total: a peer may answer with plain
+    text, with nothing at all, or with a shape this client version does not model, and
+    none of those may raise on a path the handshake depends on."""
+    for attribute in ("data", "structured_content"):
+        value = getattr(result, attribute, None)
+        if isinstance(value, dict):
+            return value
+    content = getattr(result, "content", None)
+    if isinstance(content, list) and content:
+        text = getattr(content[0], "text", None)
+        if isinstance(text, str):
+            with contextlib.suppress(ValueError):
+                return json.loads(text)
+    return result if isinstance(result, dict) else None
+
+
+class McpTransport(AgreementMixin):
     """One peer's view of the wire: push to opponent, pull from own inboxes."""
 
     def __init__(
@@ -50,68 +69,30 @@ class McpTransport:
         self._resend_interval = resend_interval
         self._resend_timeout = resend_timeout
 
-    def _call(self, tool: str, argument: dict) -> None:
+    def _call(self, tool: str, argument: dict) -> object:
+        """Invoke one opponent tool and hand back its answer, if it structured one.
+
+        The reply is returned rather than discarded so the handshake can read an agreement
+        out of it (see agree.py); every other call ignores what comes back.
+        """
         key = "payload" if tool == "submit_audit" else "message"
 
         async def invoke():
             async with Client(StreamableHttpTransport(self._url, headers=self._headers)) as client:
-                await client.call_tool(tool, {key: argument})
+                return await client.call_tool(tool, {key: argument})
 
-        asyncio.run(invoke())
+        return _reply_payload(asyncio.run(invoke()))
 
-    def _call_with_retry(self, tool: str, argument: dict, timeout: float | None = None) -> None:
+    def _call_with_retry(self, tool: str, argument: dict, timeout: float | None = None) -> object:
         """Retry until the opponent's server is up (peers may start seconds apart)."""
         deadline = time.time() + (timeout if timeout is not None else self._connect_timeout)
         while True:
             try:
-                self._call(tool, argument)
-                return
+                return self._call(tool, argument)
             except Exception as exc:
                 if time.time() >= deadline:
                     raise NetworkError(f"opponent MCP unreachable at {self._url}: {exc}") from exc
                 time.sleep(self._retry)
-
-    def _send_offer(self, signed: dict) -> None:
-        """(Re)send our SAME negotiate offer, best-effort. Transient HTTP 502 /
-        connection-refused are still retried inside ``_call_with_retry``; a peer that
-        stays unreachable is swallowed here so the mutual loop keeps trying until its own
-        overall deadline rather than aborting on one failed (re)send."""
-        with contextlib.suppress(NetworkError):
-            self._call_with_retry("negotiate", signed, timeout=self._resend_timeout)
-
-    def exchange_agreement(self, signed: dict) -> dict:
-        """MUTUAL per-sub-game handshake. A single successful POST is NOT sufficient: the
-        peer's router may swap the active role-agent between sub-games, so an old agent can
-        accept + ack our offer and then exit before the new agent ever sees it. We keep
-        re-sending the IDENTICAL offer (same nonce / identity / terms — never regenerated on
-        a retry) until we have ALSO received the peer's offer for THIS sub-game, then re-send
-        once more so the peer's currently-active agent definitely holds it. Bounded by
-        ``agreement_timeout`` (no infinite hang); duplicate offers are idempotent because the
-        receiving server only enqueues them."""
-        want = signed.get("sub_game_number")
-        deadline = time.time() + self._agreement_timeout
-        received: dict | None = None
-        while received is None:
-            self._send_offer(signed)  # (re)send; a swap may have dropped the previous one
-            try:
-                msg = self._inboxes.agreements.get(timeout=self._resend_interval)
-            except queue.Empty:
-                if time.time() >= deadline:
-                    # ``queue.Empty`` is the ordinary polling tick, not the failure:
-                    # it fires every ``_resend_interval`` and is normally swallowed by
-                    # the ``continue`` below. Only the deadline is the real error, so
-                    # the internal timeout is suppressed from the public traceback.
-                    raise NetworkError("opponent never sent its agreement") from None
-                continue
-            if (
-                want is not None
-                and isinstance(msg, dict)
-                and msg.get("sub_game_number") not in (None, want)
-            ):
-                continue  # a straggler offer for a different sub-game: skip, keep waiting
-            received = msg
-        self._send_offer(signed)  # mutual: one more so the peer's CURRENT agent holds our offer
-        return received
 
     def send_turn(self, message: dict) -> None:
         self._call_with_retry("receive_turn", message)

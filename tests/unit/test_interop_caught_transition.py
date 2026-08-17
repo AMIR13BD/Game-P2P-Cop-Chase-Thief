@@ -49,6 +49,7 @@ class _StubEngine:
         self.records = records
         self.step = len(records)
         self.tokens_used = 0  # deterministic stub: no model, so no tokens to report
+        self.threshold = 10  # mirrors SubEngine; bounds the peer's audit reveal
         self._opening = TurnMessage(step=1, sender=role, commit="open", hint="")
         self._concession = concession
 
@@ -73,6 +74,7 @@ def _make_runtime(role, outcome, incoming_turn, peer_records, transport_records)
     rt.role = role
     rt.n = 1
     rt.terms = default_terms(max_steps=10)
+    rt.board_size = rt.terms["board_size"]  # mirrors __init__; bounds inbound coordinates
     rt.inbox = Inbox(window=4)
     rt._listen = lambda event: None
     rt.result = None

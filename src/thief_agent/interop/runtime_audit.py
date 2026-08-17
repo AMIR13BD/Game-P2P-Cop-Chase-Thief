@@ -10,6 +10,7 @@ import time
 
 from ..domain.crypto import audit_records, commit_of
 from . import commits
+from .msgcheck import clean_audit, record_step
 from .wire import AuditPayload
 
 AUDIT_WAIT = 30.0  # cap the end-of-game audit wait: a responsive peer audits in <1s, so this
@@ -29,11 +30,11 @@ class AuditExchangeMixin:
         secret material is added."""
         res = audit_records(records)
         failed = list(res["failed_steps"])
-        by_step = {int(r["payload"].get("step", -1)): r for r in records}
+        by_step = {record_step(r): r for r in records}
         integrity_failed = set(res["failed_steps"])
         mismatches: list[dict] = []
         for r in records:  # reveal-hash: commit != H(payload,nonce)
-            step = int(r.get("payload", {}).get("step", -1))
+            step = record_step(r)
             if step in integrity_failed:
                 try:
                     recomputed = commit_of(r["payload"], r.get("nonce", ""))
@@ -118,6 +119,9 @@ class AuditExchangeMixin:
             theirs = self.transport.poll_audit(remaining)
             if theirs is None:
                 return None
+            theirs = clean_audit(theirs, self.engine.threshold)
+            if theirs is None:
+                continue  # malformed/oversized reveal: ignore it, keep waiting for a real one
             peer = AuditPayload.from_wire(theirs)
             if peer.sub_game_number not in (None, self.n):
                 continue  # a straggler audit for a different sub-game: skip, keep waiting

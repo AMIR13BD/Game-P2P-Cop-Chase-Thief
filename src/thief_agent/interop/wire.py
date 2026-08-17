@@ -43,9 +43,12 @@ class TurnMessage:
 class AuditPayload:
     """End-of-game reveal: every record with its nonce, for the OPPONENT to re-hash."""
 
-    sender: str
-    records: list
-    result_claim: str  # "capture" | "survival" | "timeout" | "__consensus__"
+    # Defaulted so ``from_wire`` is TOTAL: a peer can send an envelope missing any of these,
+    # and an empty sender/claim simply fails the envelope checks the callers already make,
+    # rather than raising a TypeError out of the series.
+    sender: str = ""
+    records: list = field(default_factory=list)
+    result_claim: str = ""  # "capture" | "survival" | "timeout" | "series_consensus"
     consensus_sha: str | None = None  # series-level digest for explicit mutual confirmation
     sub_game_number: int | None = None  # explicit sub-game identity so the receiver buckets an
     # incoming audit by the sub-game it belongs to (not by arrival), surviving role swaps
@@ -65,7 +68,8 @@ class AuditPayload:
     @classmethod
     def from_wire(cls, data: dict) -> "AuditPayload":
         known = set(cls.__dataclass_fields__)
-        payload = cls(**{k: v for k, v in data.items() if k in known})
+        fields = data.items() if isinstance(data, dict) else ()
+        payload = cls(**{k: v for k, v in fields if k in known})
         # When present, a digest MUST be exactly 64 lowercase hex; anything else is rejected
         # safely (treated as absent) so a malformed value can never drive confirmation.
         if payload.consensus_sha is not None and not _HEX64.match(str(payload.consensus_sha)):

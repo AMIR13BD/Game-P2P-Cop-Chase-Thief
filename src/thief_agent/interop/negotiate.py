@@ -9,7 +9,8 @@ shared ``game_id``/``game_uid`` are then derived from data both peers hold.
 from dataclasses import dataclass
 
 from ..domain.crypto import commit_of, fresh_nonce, verify
-from ..exceptions import CryptoError
+from ..exceptions import ConfigError, CryptoError
+from .guard import check_group_id
 from .ids import derive_game_ids
 from .terms import TERMS_KEYS
 from .wire import Negotiation
@@ -32,10 +33,15 @@ class Agreed:
 class Negotiator:
     """One peer's side of the agreement handshake for a single sub-game."""
 
-    def __init__(self, terms: dict, identity: dict, group_id: str):
+    def __init__(
+        self, terms: dict, identity: dict, group_id: str, expect_opponent: str | None = None
+    ):
         self.terms = terms
         self.identity = identity
         self.group_id = group_id
+        # Once a series knows who it is playing, a later greeting naming someone else would
+        # silently re-key every artifact and split the match across two game_ids.
+        self.expect_opponent = expect_opponent
         self._nonce = fresh_nonce()
 
     def signed(
@@ -78,6 +84,17 @@ class Negotiator:
         opponent = raw.get("group_id") or (raw.get("identity") or {}).get("group_id")
         if not opponent:
             raise NegotiationRefusedError("greeting names no group_id; no game_id derivable")
+        # The signature above covers the TERMS, never this name — and this name becomes the
+        # artifact filename base. Refuse a hostile one rather than rewriting it (guard.py).
+        try:
+            opponent = check_group_id(opponent, self.group_id)
+        except ConfigError as exc:
+            raise NegotiationRefusedError(str(exc)) from exc
+        if self.expect_opponent and opponent != self.expect_opponent:
+            raise NegotiationRefusedError(
+                f"opponent identity changed mid-series: expected {self.expect_opponent!r}, "
+                f"this greeting names {opponent!r}"
+            )
         game_id, game_uid = derive_game_ids(self.terms, self.group_id, opponent)
         declared = raw.get("game_uid")
         if isinstance(declared, str) and declared != game_uid:

@@ -5,6 +5,7 @@ import time
 
 from .delivery import EquivocationError, Inbox, ProtocolViolationError
 from .engine import IncomingOutcome, SubEngine, _now_iso
+from .msgcheck import clean_turn
 from .runtime_audit import AuditExchangeMixin
 from .wire import TurnMessage
 
@@ -25,6 +26,7 @@ class SubGameRuntime(AuditExchangeMixin):
     ):
         self.engine = SubEngine(role, terms, group, github_commit, sub_game_number, seed)
         self.transport = transport
+        self.board_size = terms["board_size"]  # bounds every coordinate an opponent sends
         self.inbox = Inbox(window=4)
         self.role = role
         self.n = sub_game_number
@@ -46,6 +48,10 @@ class SubGameRuntime(AuditExchangeMixin):
                 if time.monotonic() > deadline:
                     self.result = ("timeout", self.role)  # opponent went silent
                 continue
+            incoming = clean_turn(incoming, self.board_size)  # decided BEFORE any mutation
+            if incoming is None:  # malformed: logged and dropped, never scored against anyone
+                self._listen({"type": "refused_turn", "sub_game": self.n})
+                continue
             deadline = time.monotonic() + turn_timeout
             try:
                 ready = self.inbox.offer(incoming)  # exactly-once, in step order
@@ -59,8 +65,7 @@ class SubGameRuntime(AuditExchangeMixin):
                 self._process(TurnMessage.from_wire(raw))
                 # Police self-concludes the SIGNED survival at the 35-step threshold rather than
                 # waiting (up to turn_timeout) for the peer thief's end message. Fires ONLY at the
-                # full threshold with no capture, so an early peer silence (e.g. step 30) still
-                # yields a genuine timeout below — never a fabricated survival.
+                # full threshold with no capture, so an early peer silence still times out below.
                 if (
                     self.result is None
                     and self.role == "police"

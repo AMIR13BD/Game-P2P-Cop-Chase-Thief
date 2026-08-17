@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 
 from ..exceptions import NetworkError
-from .consensus import canonical_rows, consensus_sha
+from .consensus import LEGACY, canonical_rows, consensus_sha
 from .negotiate import Negotiator
 from .runtime import SubGameRuntime
 from .scoring import role_for
@@ -35,6 +35,7 @@ class SeriesResult:
     peer_consensus_sha: str | None = None  # the peer's digest, as actually received (else None)
     sha_match: bool = False  # peer digest received AND byte-identical to ours
     results_agreed: bool = False  # every sub-game's local vs peer result_claim matched
+    consensus_profile: str = LEGACY  # which settlement envelope this series hashed under
 
 
 def _exchange_consensus(transport, our_role, peer_role, our_sha, turn_timeout) -> str | None:
@@ -79,19 +80,22 @@ def run_series(
     listener=None,
     turn_timeout: float = 180.0,
     game_id: str | None = None,
+    consensus_profile: str = LEGACY,
 ) -> SeriesResult:
     """Play our side of a whole series against a real opponent.
 
     ``game_id`` optionally OVERRIDES the derived filename base with a peer-agreed value
-    (Table 20); ``game_uid`` is always the derived crypto id and is never overridden."""
+    (Table 20); ``game_uid`` is always the derived crypto id and is never overridden.
+    ``consensus_profile`` selects the settlement envelope, agreed per pairing out of band
+    and never in the signed terms; ``legacy`` keeps every filed digest reproducible."""
     own_identity = own_identity or identity_for(group, github_commit=github_commit)
-    result = SeriesResult(own_identity=own_identity)
+    result = SeriesResult(own_identity=own_identity, consensus_profile=consensus_profile)
     known_opponent: str | None = None
     for n in range(1, num_games + 1):
         role = role_for(natural_role, n)
         runtime = None
         try:
-            negotiator = Negotiator(terms, own_identity, group)
+            negotiator = Negotiator(terms, own_identity, group, known_opponent)
             peer_msg = transport.exchange_agreement(
                 negotiator.signed(role, n, opponent_group=known_opponent).to_wire()
             )
@@ -127,7 +131,8 @@ def run_series(
     # After the series: per-sub-game result agreement, then an explicit peer-digest EXCHANGE.
     theirs = result.peer_identity.get("group_id", "")
     rows = canonical_rows(result.summaries, group, theirs)
-    result.consensus_sha = consensus_sha(result.game_id or "", result.game_uid or "", rows)
+    gid, guid = result.game_id or "", result.game_uid or ""
+    result.consensus_sha = consensus_sha(gid, guid, rows, consensus_profile)
     result.results_agreed = bool(result.summaries) and all(
         s["audit"].get("result_agreed", False) for s in result.summaries
     )

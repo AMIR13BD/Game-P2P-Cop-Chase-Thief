@@ -10,7 +10,9 @@ import os
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
 
+from ..interop.guard import safe_child
 from ..report import ids
 
 SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
@@ -67,15 +69,25 @@ def build_message(sender: str, recipient: str, subject: str, body: str, name: st
     return {"raw": base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")}
 
 
+def artifact_path(dirpath: str, name: str) -> str:
+    """A report path proven to stay inside ``dirpath``.
+
+    Every name here embeds ``game_id``, which is derived from the OPPONENT's declared group
+    id. Unchecked, that lets a peer point our reader at any JSON on disk and — worse —
+    point the sent-marker at an unrelated existing file, whose presence silently converts
+    the one mandatory lecturer email into "skipped-already-sent"."""
+    return str(safe_child(Path(dirpath), name))
+
+
 def load_result(dirpath: str, gid: str) -> dict:
-    with open(os.path.join(dirpath, ids.result_name(gid)), encoding="utf-8") as fh:
+    with open(artifact_path(dirpath, ids.result_name(gid)), encoding="utf-8") as fh:
         return json.load(fh)
 
 
 def report_attachment(dirpath: str, gid: str) -> tuple[str, bytes]:
     """The mandatory JSON report artifact (name, bytes)."""
     name = ids.result_name(gid)
-    with open(os.path.join(dirpath, name), "rb") as fh:
+    with open(artifact_path(dirpath, name), "rb") as fh:
         return name, fh.read()
 
 

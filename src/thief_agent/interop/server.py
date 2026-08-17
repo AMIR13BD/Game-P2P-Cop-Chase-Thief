@@ -12,7 +12,6 @@ shared bearer token (defense-in-depth): enforced only when a token is configured
 required of a no-auth reference peer.
 """
 
-import queue
 import socket
 import threading
 import time
@@ -23,16 +22,7 @@ from fastmcp.server.dependencies import get_http_headers
 
 from ..exceptions import NetworkError
 from ..security.auth import bearer_from_header
-
-
-class PeerInboxes:
-    """Thread-safe mailboxes filled by MCP tools, drained by the runtime."""
-
-    def __init__(self):
-        self.agreements: queue.Queue = queue.Queue()
-        self.turns: queue.Queue = queue.Queue()
-        self.audits: queue.Queue = queue.Queue()
-        self.controls: queue.Queue = queue.Queue()
+from .inboxes import PeerInboxes, accept
 
 
 class PeerServer:
@@ -99,29 +89,25 @@ def build_peer_server(name: str, inboxes: PeerInboxes, token: str | None = None)
     def negotiate(message: dict) -> dict:
         """Receive the opponent's signed game agreement."""
         _auth()
-        inboxes.agreements.put(message)
-        return {"ok": True}
+        return accept(inboxes.agreements, message)
 
     @mcp.tool
     def receive_turn(message: dict) -> dict:
         """Receive the opponent's turn message (the turn token travels with it)."""
         _auth()
-        inboxes.turns.put(message)
-        return {"ok": True}
+        return accept(inboxes.turns, message)
 
     @mcp.tool
     def submit_audit(payload: dict) -> dict:
         """Receive the opponent's end-of-game audit reveal (records + nonces)."""
         _auth()
-        inboxes.audits.put(payload)
-        return {"ok": True}
+        return accept(inboxes.audits, payload)
 
     @mcp.tool
     def receive_control(message: dict) -> dict:
         """Receive an opponent control signal (enable / status / restart / quit)."""
         _auth()
-        inboxes.controls.put(message)
-        return {"ok": True}
+        return accept(inboxes.controls, message)
 
     return mcp
 
