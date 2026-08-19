@@ -29,6 +29,7 @@ from ..domain.board import Board, Cell
 from ..domain.rules import barrier_cell, legal_barrier_targets
 from .base import Action, BrainBase, Observation
 from .cop_locate import CopLocator
+from .corner_model import CornerRunnerTracker
 from .graph import distance_map, reachable_area
 from .moves import legal_steps, manhattan
 from .orcai_track import OrcaiThiefTracker
@@ -49,6 +50,7 @@ class RingBreakerBrain(BrainBase):
         self._start = tuple(thief_start)
         self.fallback = ContainBayesBrain(rng, horizon=horizon, seed=seed, thief_start=thief_start)
         self.tracker: OrcaiThiefTracker | None = None
+        self.corner: CornerRunnerTracker | None = None
         self.locator: CopLocator | None = None
         self._gap: deque[int] = deque(maxlen=STALL_WINDOW)
         self.log: list[dict] = []
@@ -86,11 +88,13 @@ class RingBreakerBrain(BrainBase):
             # No start term is assumed: a board-wide prior plus one scent broadcast
             # localises them outright, and no Barrier Law applies to a Thief.
             self.locator = CopLocator(obs.board_size, None, barrier_law=False)
+            self.corner = CornerRunnerTracker(obs.board_size)
         evidence = self.locator.update(dict(obs.scent), frozenset(obs.barriers), board)
         pred = self.tracker.advance(obs, board)
         if evidence and pred not in evidence:
             pred = self.tracker.resync(min(evidence))  # the broadcast beats the model
         self.tracker.score(dict(obs.scent), self.locator.best if evidence else None)
+        self.corner.observe(pred)  # grade last turn's NEXT-cell bet, not our localisation
         # The fallback keeps its own belief filter, so it is stepped EVERY turn and
         # stays correct the instant we need it.
         fb = self.fallback.decide(obs)
@@ -112,9 +116,15 @@ class RingBreakerBrain(BrainBase):
         moves = [dc for dc in steps if dc[0] != "STAY"] or steps
         far = board.size * board.size
 
+        trust = self.corner.trusted  # a graded model beats an assumed one
+
         def cost(dc: tuple[str, Cell]) -> tuple[int, int, str]:
             cell = dc[1]
-            nxt = self.tracker.peek(cell, board)
+            nxt = (
+                self.corner.predict(board.barriers, pred, cell)
+                if trust
+                else self.tracker.peek(cell, board)
+            )
             after = distance_map(board, nxt).get(cell, far)
             now = distance_map(board, pred).get(cell, far)
             return (after, now, dc[0])
@@ -126,8 +136,11 @@ class RingBreakerBrain(BrainBase):
             if cut is not None:
                 self._gap.clear()
                 self._note(obs, "cut", pred)
+                walls = board.barriers | {barrier_cell(obs.self_pos, cut.direction)}
+                self.corner.commit(self.corner.predict(walls, pred, obs.self_pos))
                 return cut
         self._note(obs, "intercept", pred)
+        self.corner.commit(self.corner.predict(board.barriers, pred, best[1]))
         return Action("STAY") if best[0] == "STAY" else Action("MOVE", best[0])
 
     def hint(self, obs: Observation) -> str:
