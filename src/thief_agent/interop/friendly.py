@@ -57,14 +57,20 @@ def run_friendly(
     listener=None,
     game_id: str | None = None,
     consensus_profile: str = LEGACY,
+    role_commits: dict | None = None,
 ) -> FriendlyResult:
     """Stand up our server, dial the opponent, play a full friendly series, write artifacts.
 
+    ``role_commits`` optionally declares the cop/thief repositories' own SHAs, so each
+    sub-game reports the commit of the role that actually played it (see ``rolecommit``).
     NEVER sends email. NEVER marks the match counted. Returns a FriendlyResult whose
     ``lecturer_report_sent`` is always False.
     """
     identity = identity or identity_for(
-        group, mcp_servers=mcp_servers_for(public_mcp_url), github_commit=github_commit
+        group,
+        mcp_servers=mcp_servers_for(public_mcp_url),
+        github_commit=github_commit,
+        role_commits=role_commits,
     )
     server = start_peer_server(f"interop-{group}", host, port, token)
     transport = McpTransport(opponent_url, server.inboxes, token=token, env=env)

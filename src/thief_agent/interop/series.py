@@ -9,16 +9,12 @@ import time
 from dataclasses import dataclass, field
 
 from ..exceptions import NetworkError
+from . import rolecommit
 from .consensus import LEGACY, canonical_rows, consensus_sha
 from .negotiate import Negotiator
 from .runtime import SubGameRuntime
 from .scoring import role_for
-from .series_parts import (
-    _dropped_summary,
-    _peer_commit,
-    identity_for,
-    mcp_servers_for,
-)
+from .series_parts import _dropped_summary, _peer_commit, identity_for, mcp_servers_for
 from .wire import AuditPayload
 
 _CONSENSUS_TAG = "series_consensus"  # exact result_claim tag agreed with the peer
@@ -94,8 +90,10 @@ def run_series(
     for n in range(1, num_games + 1):
         role = role_for(natural_role, n)
         runtime = None
+        # THIS sub-game is played by the repo that implements THIS role: declare and bind it.
+        ident, sha = rolecommit.view(own_identity, role, github_commit)
         try:
-            negotiator = Negotiator(terms, own_identity, group, known_opponent)
+            negotiator = Negotiator(terms, ident, group, known_opponent)
             peer_msg = transport.exchange_agreement(
                 negotiator.signed(role, n, opponent_group=known_opponent).to_wire()
             )
@@ -115,9 +113,7 @@ def run_series(
                 )
             # THIS sub-game's peer runtime SHA, from the peer's own declaration.
             peer_commit = _peer_commit(agreed.opponent_identity, peer_msg)
-            runtime = SubGameRuntime(
-                role, terms, transport, group, github_commit, n, seed, listener
-            )
+            runtime = SubGameRuntime(role, terms, transport, group, sha, n, seed, listener)
             summary = runtime.run(turn_timeout=turn_timeout)
             # Persist per sub-game (reporting only). A peer that declares no commit in its
             # identity still reveals one in its signed Step-0 audit record (book ch.5.5); that
@@ -127,6 +123,7 @@ def run_series(
             )
         except NetworkError:  # one sub-game's transport failure must not abort the whole series
             summary = _dropped_summary(n, role, runtime)
+        summary["own_github_commit"] = sha  # the SHA that actually played, both paths
         result.summaries.append(summary)
     # After the series: per-sub-game result agreement, then an explicit peer-digest EXCHANGE.
     theirs = result.peer_identity.get("group_id", "")

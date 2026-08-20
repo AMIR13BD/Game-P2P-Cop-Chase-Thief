@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from ..shared.gitinfo import current_commit
+from . import rolecommit
 from .cli_args import build_parser as _build_parser
 from .friendly import run_friendly
 from .terms import default_terms, validate_terms
@@ -25,9 +26,13 @@ def _friendly(args) -> int:
     # Bind the audit's Step-0 github_commit to the REAL current HEAD (a 40-char SHA the
     # peer's final audit validates); resolved at the CLI boundary, never in domain code.
     commit = args.commit or current_commit(default="0" * 40)
+    # Per-ROLE SHAs: the cop and thief repositories are two submissions, and a sub-game is
+    # played by exactly one of them. Unset roles fall back to ``commit`` (prior behaviour).
+    roles = rolecommit.resolve(commit, args.police_commit, args.thief_commit)
     print(f"match_mode=friendly  group={args.group}  role={args.role}  peer={args.peer}")
     print(f"  bearer_auth={'on' if token else 'off (reference design: none)'}")
     print(f"  github_commit={commit}")
+    print(f"  role_commits  cop={roles['cop']}  thief={roles['thief']}")
     print(
         "  public_mcp_url="
         + (args.public_mcp_url or "(none — a peer that builds a declaration will refuse)")
@@ -48,6 +53,7 @@ def _friendly(args) -> int:
         public_mcp_url=args.public_mcp_url or None,
         game_id=args.game_id or None,
         consensus_profile=args.consensus_profile,
+        role_commits=roles,
         listener=lambda e: print(f"  [{e.get('type')}] {e}") if args.verbose else None,
     )
     print(f"\n  game_id  {result.game_id}\n  game_uid {result.game_uid}")

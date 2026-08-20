@@ -29,12 +29,15 @@ def identity_for(
     members: list | None = None,
     llm_model: str = "template",
     github_commit: str = "",
+    role_commits: dict | None = None,
 ) -> dict:
     """This peer's static per-GROUP identity, exchanged in the handshake (roles alternate).
 
     ``github_commit`` (== ``git_commit_hash``) is the real 40-char HEAD; it rides in the
-    identity (NOT the signed terms) so the peer's declaration binds our commit."""
-    return {
+    identity (NOT the signed terms) so the peer's declaration binds our commit.
+    ``role_commits`` optionally declares the cop/thief repositories' own SHAs alongside it
+    (see ``rolecommit``); omitted, the identity is exactly what it always was."""
+    identity = {
         "group_id": group,
         "group_name": group,
         "git_commit_hash": github_commit,
@@ -49,6 +52,9 @@ def identity_for(
         "llm_model": llm_model,
         "spec": system_spec(),
     }
+    if role_commits:
+        identity["github_commits"] = dict(role_commits)
+    return identity
 
 
 def mcp_servers_for(public_mcp_url: str | None) -> dict:

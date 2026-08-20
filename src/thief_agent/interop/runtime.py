@@ -131,14 +131,14 @@ class SubGameRuntime(AuditExchangeMixin):
         # silent this is unchanged: ``_exchange_audit`` still falls back to ``_missing_audit``.
         audit = self._exchange_audit(outcome, turn_timeout)
         self._drain_turns()
-        # Survival length = threshold (max_steps) for BOTH peers, not our own turn count.
-        steps = self.engine.threshold if outcome == "survival" else self.engine.step
         return {
             "sub_game_number": self.n,
             "role": self.role,
             "result": outcome,
             "winner": winner,
-            "steps": steps,
+            # Kit semantics (reference ``peer/summary.py``): OUR OWN step_number — a police
+            # peer whose thief claimed survival reports 34, not the 35-step threshold.
+            "steps": self.engine.step,
             "records": self.engine.records,
             "audit": audit,
             "started_at": self.started_at,

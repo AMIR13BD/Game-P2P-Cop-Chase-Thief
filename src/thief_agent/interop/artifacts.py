@@ -21,6 +21,8 @@ def group_block(identity: dict) -> dict:
         "group_name": identity.get("group_name", ""),
         "git_commit_hash": commit,
         "github_commit": commit,
+        # Additive (see ``rolecommit``): each role's own repo SHA, as that side declared them.
+        "github_commits": identity.get("github_commits", {}),
         "members": identity.get("members", []),
         "repos": identity.get("repos", {}),
         "mcp_servers": identity.get("mcp_servers", {}),
@@ -108,8 +110,10 @@ def _result_rows(summaries, ours, theirs, commits) -> list:
                 # Our real consumption for this sub-game (book App. E rule 54). The peer
                 # reports its own in its own result: we never invent a number for it.
                 "tokens": {ours: int(s.get("tokens_total") or 0), theirs: 0},
+                # Both sides per SUB-GAME (rule 53): the SHA of the repo that played THIS
+                # role. Ours is stamped by the series; the series-wide value is the fallback.
                 "github_commit": {
-                    ours: commits.get(ours, ""),
+                    ours: s.get("own_github_commit") or commits.get(ours, ""),
                     theirs: s.get("peer_github_commit") or commits.get(theirs, ""),
                 },
                 "audit": {

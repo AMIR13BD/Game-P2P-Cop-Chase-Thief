@@ -5,8 +5,9 @@
     input and land on the SAME sha256;
   * mutual_agreement.confirmed is reachable but NEVER forced: it is true iff every sub-game's
     PEER log verified untampered (our post-mortem mutual audit), false the moment one fails;
-  * a survival sub-game's recorded steps equal the survival threshold (max_steps) for BOTH
-    roles, so the two reports agree on the game length (35, not the cop's 34).
+  * ``steps`` is each side's OWN step_number (Kit ``peer/summary.py``), so a survival
+    sub-game reads 35 in the surviving thief's report and 34 in the cop's — and that
+    asymmetry is correct, because ``steps`` is per-side metadata outside the digest.
 No strategy/scoring change — these are report/serialization values only.
 """
 
@@ -94,8 +95,14 @@ def test_fingerprint_ignores_steps_and_local_only_fields():
     assert _canonical_fingerprint("G003", "uid-123", base) != fp  # game_id change matters
 
 
-def test_survival_steps_equal_threshold_for_both_roles(tmp_path):
-    ours, theirs, terms = _play()
+def test_each_side_reports_its_own_step_count_on_a_survival(tmp_path):
+    """Kit semantics (reference ``peer/summary.py``: ``steps = rt.state.step_number``): each
+    peer reports the actions IT sealed. A thief that reaches the threshold reports 35; the
+    cop it outlasted answered 34 of those turns and reports 34. Reporting the threshold for
+    both roles (as we did until this test was rewritten) overstates the cop's own play by one
+    and contradicts the reference — and it was never needed for agreement, since ``steps`` is
+    excluded from the consensus preimage (see the fingerprint test above)."""
+    ours, theirs, terms = _play()  # amireman=police on odd sub-games, uoh-ay26=thief
     thr = terms["max_steps"]
     _pa, ra = emit_artifacts(tmp_path / "a", ours, terms)
     _pb, rb = emit_artifacts(tmp_path / "b", theirs, terms)
@@ -103,7 +110,9 @@ def test_survival_steps_equal_threshold_for_both_roles(tmp_path):
     for sa, sb in zip(ra["sub_games"], rb["sub_games"], strict=True):
         if sa["result"] == "survival":
             saw_survival = True
-            assert sa["steps"] == thr, sa  # canonical survival length, not the cop's 34
-            assert sb["steps"] == thr  # both independently-generated reports agree
-            assert sa["steps"] == sb["steps"]
+            thief_side, cop_side = (sb, sa) if sa["roles"]["amireman"] == "police" else (sa, sb)
+            assert thief_side["steps"] == thr  # the survivor reached the signed threshold
+            assert cop_side["steps"] == thr - 1  # its own answers, one fewer, never invented
     assert saw_survival  # the scenario actually contains survivals
+    # The asymmetry stays out of the settlement: both sides still sign the same digest.
+    assert ra["mutual_agreement"]["sha256"] == rb["mutual_agreement"]["sha256"]

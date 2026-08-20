@@ -64,6 +64,20 @@ def build_parser(handler) -> argparse.ArgumentParser:
         default=None,
         help="github_commit for the audit Step-0 record; default is the real HEAD SHA",
     )
+    p.add_argument(
+        "--police-commit",
+        dest="police_commit",
+        default=None,
+        help="40-hex SHA of the COP repository, reported for the sub-games we play police "
+        "(book ch.5.5 / App. E rule 53). Defaults to --commit, i.e. the launching repo's HEAD.",
+    )
+    p.add_argument(
+        "--thief-commit",
+        dest="thief_commit",
+        default=None,
+        help="40-hex SHA of the THIEF repository, reported for the sub-games we play thief. "
+        "Defaults to --commit, i.e. the launching repo's HEAD.",
+    )
     p.add_argument("--turn-timeout", type=float, default=180.0)
     p.add_argument(
         "--counted",
