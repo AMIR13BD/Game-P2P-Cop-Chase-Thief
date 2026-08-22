@@ -366,13 +366,34 @@ belief map or a verdict that does not match `--expect`.
 | **Thief (this repo)** | https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Thief |
 | **Police (companion)** | **https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police** |
 
+
+### 6.1 League interoperability contract
+
+The shape a peer must meet to play us a counted series. All of it is enforced in
+`src/thief_agent/interop/`.
+
+| | |
+|---|---|
+| **Group** | `amireman` — Amir Fadila, Eman Sarhan |
+| **Series** | 6 sub-games, **roles alternate** — natural role on odd sub-games, the opposite on even ones |
+| **Turn order** | **thief-first**: the Thief opens every sub-game; the Cop's loop waits for the first inbound turn |
+| **Endpoint** | **one unified MCP endpoint serves both our roles**. Role alternation happens inside a single server process, so one URL is advertised for `cop` and `thief` alike — and a peer must do the same, because a series dials one fixed peer URL for all six sub-games |
+| **Tools** | `negotiate(message)`, `receive_turn(message)`, `submit_audit(payload)`, `receive_control(message)` |
+| **Terms** | the 14 signed terms, compared for exact value equality; signature is `SHA256(canonical(terms)｜nonce)` |
+| **Settlement** | per-sub-game mutual audit, then an explicit **exchange** of the series digest — a locally computed hash never confirms anything on its own |
+| **Consensus profiles** | `legacy` (default) and **`official_reference_v1`**, agreed per pairing out of band, never inside the signed terms |
+| **Commit reporting** | **role-specific**: each sub-game declares the SHA of the repository that actually played it (Police repo for the cop sub-games, Thief repo for the thief ones), with an additive `github_commits` map alongside. Commit fields never enter the consensus digest |
+| **Production strategies** | Police = `RingBreakerBrain` (opponent model graded against the scent actually broadcast, falling back to `ContainBayesBrain` when the model stops fitting); Thief = `AntiSqueezeBrain` |
+
+Public endpoints are created per match and expire, so no tunnel URL is published here.
+
 ---
 
 ## 7. Empirical evidence
 
 ### 7.1 League matches played (counted)
 
-Five counted six-sub-game series against five different groups. Every sub-game log verified
+Seven counted six-sub-game series against seven different groups. Every sub-game log verified
 untampered on both sides.
 
 | Game | Opponent | Score (`amireman` : opponent) | Result | Logs verified |
@@ -382,13 +403,64 @@ untampered on both sides.
 | `G008` | `sharNamr` | 47 : 47 | tie | 6/6 ✔ |
 | `G012` | `ahk-yosi` | 40 : 60 | loss | 6/6 ✔ |
 | `G020` | `Orcai-MJ` | **90 : 30** | **win** | 6/6 ✔ |
+| `G040` | `salareen` | **90 : 30** | **win** | 6/6 ✔ |
+| `G077` | `ali-ahm1` | **90 : 30** | **win** | 6/6 ✔ |
+| **Total** | **7 series** | **444** | **3 wins · 2 ties · 2 losses** | **42/42 ✔** |
 
-This satisfies the "at least two games against different groups" threshold with five.
+This satisfies the "at least two games against different groups" threshold with seven.
+Raw counted total across all seven series: **444 points**.
 
-#### G020 — the final counted series (vs `Orcai-MJ`)
+#### G077 — the final counted series (vs `ali-ahm1`)
 
-The last counted match is the strongest result of the series and the one the replay
-screenshot in §5.2 is taken from.
+The last counted match, and the third consecutive 6–0.
+
+| | |
+|---|---|
+| **Game id** | `G077` |
+| **Opponent** | `ali-ahm1` |
+| **Final score** | **`amireman` 90 : 30 `ali-ahm1`** |
+| **Sub-games** | **6 : 0** (six wins, no losses, no ties) |
+| **Audit status** | all six sub-game logs verified untampered on both sides |
+| **Result consensus** | `results_agreed` and `sha_match` both `true`; `mutual_agreement.confirmed` = `true` |
+| **Consensus digest** | `d93188454b5b24c01d4c3390904446626c4b6439d22887a9ef543dbf1f6f4b32` |
+| **Consensus profile** | `official_reference_v1` |
+| **Gameplay LLM tokens** | 0 for both groups (see §11) |
+
+| Sub-game | Our role | Outcome | Steps | Log verified |
+|---|---|---|---|---|
+| 1 | thief | survival | 35 | ✔ |
+| 2 | police | capture | 12 | ✔ |
+| 3 | thief | survival | 35 | ✔ |
+| 4 | police | capture | 12 | ✔ |
+| 5 | thief | survival | 35 | ✔ |
+| 6 | police | capture | 19 | ✔ |
+
+Our Thief survived the full 35-step horizon in all three sub-games it defended, and our Cop
+captured in all three it pursued. Each sub-game declares the SHA of the repository that
+actually played it: Thief `17b83bf1d0f4c9ce338fa04f6252b6a105c76da1` on
+`g01`/`g03`/`g05`, Police `6e8bc146b5e667286e6ceb80fc61edaeb9109dec` on
+`g02`/`g04`/`g06`.
+
+The six logs are committed under [`docs/evidence/G077/`](docs/evidence/G077/):
+
+```bash
+uv run python -m thief_agent replay --dir docs/evidence/G077 --game-id G077
+```
+
+#### G040 — vs `salareen`
+
+| | |
+|---|---|
+| **Final score** | **`amireman` 90 : 30 `salareen`** — 6 : 0 |
+| **Result consensus** | `results_agreed`, `sha_match` and `confirmed` all `true` |
+| **Consensus digest** | `052219681e9eb0f7d079993428de7d25f909889b95c45c9b5e5a7563663f3e5d` |
+
+Same shape as G077: thief survival at 35 steps on `g01`/`g03`/`g05`, police capture at 12
+steps on `g02`/`g04`/`g06`. Logs under [`docs/evidence/G040/`](docs/evidence/G040/).
+
+#### G020 — the replay-screenshot series (vs `Orcai-MJ`)
+
+The series the replay screenshot in §5.2 is taken from.
 
 | | |
 |---|---|
@@ -862,7 +934,7 @@ dependencies remain under their own licences as listed above.
 | Belief-map (GUI) screenshot | attached | ✔ [`docs/images/thief-gui-belief-map.png`](docs/images/thief-gui-belief-map.png) — §5.1 |
 | Replay screenshot with `VERIFIED OK` | attached | ✔ [`docs/images/thief-replay-verified-ok.png`](docs/images/thief-replay-verified-ok.png) — §5.2 |
 | At least 2 games vs different groups | ≥ 2 | ✔ 5 counted, 5 different groups (§7.1) |
-| End-of-game email, each group separately | both sides sent | ✔ sent for all five counted matches (`G002`, `G005`, `G008`, `G012`, `G020`) |
+| End-of-game email, each group separately | both sides sent | ✔ sent for all seven counted matches (`G002`, `G005`, `G008`, `G012`, `G020`, `G040`, `G077`) |
 | No secrets in the repository | verified | ✔ §9 |
 | Annotated tag `v1.0-submission` | pushed | ✔ pushed on this commit |
 
