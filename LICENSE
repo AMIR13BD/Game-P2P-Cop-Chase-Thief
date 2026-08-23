@@ -1,0 +1,42 @@
+Copyright (c) 2026 Amir Fadila and Eman Sarhan (team "amireman").
+All rights reserved.
+
+STATUS
+------
+This repository is coursework, submitted for assessment in "Orchestration of AI
+Agents", Department of Computer Science, University of Haifa, 2026. It is NOT an
+open-source release: no licence to use, copy, modify, merge, publish, distribute,
+sublicense or sell this software is granted to anyone.
+
+GRANTED USE
+-----------
+The course staff of the above course are granted permission to read, execute,
+test and evaluate this software for the purpose of assessing the submission, and
+to retain a copy for academic-integrity records.
+
+THIRD-PARTY COMPONENTS
+----------------------
+Runtime and development dependencies are the property of their authors and remain
+under their own licences (fastmcp, openai, google-api-python-client,
+google-auth-oauthlib, pytest, pytest-cov, ruff, jsonschema, matplotlib -- see
+README section 13.6 for the per-package list).
+
+The official reference implementation of this game (Game-P2P-Cop-Chase,
+(c) Dr. Yoram Segal / GTAI) is distributed under an Educational-Use EULA. Its wire
+formats and protocol patterns were studied for interoperability and independently
+re-implemented here; no code or asset from it was copied. The full accounting is in
+docs/REUSE-REGISTER.md.
+
+Match logs, configuration records and result reports committed under docs/evidence/
+were produced jointly with the opposing teams named in each file and are published
+here as evidence of play.
+
+NO WARRANTY
+-----------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Companion repository: https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police

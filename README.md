@@ -396,19 +396,41 @@ Public endpoints are created per match and expire, so no tunnel URL is published
 Seven counted six-sub-game series against seven different groups. Every sub-game log verified
 untampered on both sides.
 
-| Game | Opponent | Score (`amireman` : opponent) | Result | Logs verified |
-|---|---|---|---|---|
-| `G002` | `uoh-ay26` | 40 : 60 | loss | 6/6 ✔ |
-| `G005` | `saedshki` | 47 : 47 | tie | 6/6 ✔ |
-| `G008` | `sharNamr` | 47 : 47 | tie | 6/6 ✔ |
-| `G012` | `ahk-yosi` | 40 : 60 | loss | 6/6 ✔ |
-| `G020` | `Orcai-MJ` | **90 : 30** | **win** | 6/6 ✔ |
-| `G040` | `salareen` | **90 : 30** | **win** | 6/6 ✔ |
-| `G077` | `ali-ahm1` | **90 : 30** | **win** | 6/6 ✔ |
-| **Total** | **7 series** | **444** | **3 wins · 2 ties · 2 losses** | **42/42 ✔** |
+| Game | Opponent | Score (`amireman` : opponent) | Sub-games | Result | Logs verified | Committed evidence |
+|---|---|---|---|---|---|---|
+| `G002` | `uoh-ay26` | 40 : 60 | 2 : 4 | loss | 6/6 ✔ | [`docs/evidence/G002/`](docs/evidence/G002/) |
+| `G005` | `saedshki` | 47 : 47 | 3 : 3 | tie | 6/6 ✔ | [`docs/evidence/G005/`](docs/evidence/G005/) |
+| `G008` | `sharNamr` | 47 : 47 | 3 : 3 | tie | 6/6 ✔ | [`docs/evidence/G008/`](docs/evidence/G008/) |
+| `G012` | `ahk-yosi` | 40 : 60 | 2 : 4 | loss | 6/6 ✔ | [`docs/evidence/G012/`](docs/evidence/G012/) |
+| `G020` | `Orcai-MJ` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G020/`](docs/evidence/G020/) |
+| `G040` | `salareen` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G040/`](docs/evidence/G040/) |
+| `G077` | `ali-ahm1` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G077/`](docs/evidence/G077/) |
+| **Total** | **7 series** | **444** | **28 : 14** | **3 wins · 2 ties · 2 losses** | **42/42 ✔** | all seven replayable |
 
 This satisfies the "at least two games against different groups" threshold with seven.
 Raw counted total across all seven series: **444 points**.
+
+**Every counted match is replayable from this repository.** All seven series ship their six
+`log_*.json` records *and* the six cryptographically locked `config_*.json` files they were
+played under — the per-game configuration attachment Appendix F's *Mandatory Rules* require.
+The four matches that predate the evidence directory (`G002`, `G005`, `G008`, `G012`) also
+ship their signed `result_*.json`. `declaration_*.json` is withheld throughout: it embeds the
+ephemeral match-day tunnel endpoints. Each directory's `README.md` derives the sub-game
+outcomes from the logs and checks that they sum to the `sub_games_won` figure in the mutually
+agreed result record.
+
+```bash
+for g in G002 G005 G008 G012 G020 G040 G077; do
+  uv run python -m thief_agent replay --dir docs/evidence/$g --game-id $g
+done
+```
+
+**One settlement caveat, stated rather than smoothed over.** In `G005` the score was mutually
+agreed (`results_agreed: true`) but the two peers' settlement *digests* differed
+(`sha_match: false`, so `confirmed: false`), because the opponent serialised the result
+envelope to a different field shape than we did. The other six matches settled with
+`confirmed: true`. Details in [`docs/evidence/G005/README.md`](docs/evidence/G005/README.md).
+
 
 #### G077 — the final counted series (vs `ali-ahm1`)
 
@@ -500,13 +522,23 @@ The series was played by our peer runtime at commit
 ### 7.2 Strategy measurement — protocol-faithful harness
 
 Measured with the wire capture semantics of §2.2 (thief-first rounds, claim/barrier/
-enclosure only, no auto-capture), our real `PeerHalf` against the current opponent's real
-published agents. 100 games per cell.
+enclosure only, no auto-capture), driving our real `PeerHalf` against the agents an
+opponent had published at the time. 100 games per cell.
 
 | Matchup | Previous default | Current default |
 |---|---|---|
 | Our Thief vs their Cop | 37/100 survivals | **100/100 survivals** |
 | Our Cop vs their Thief | 0/100 captures | **100/100 captures** (avg step 9.0, 0 barriers) |
+
+> **Provenance, stated plainly.** This table is the one measurement in this README that
+> **cannot be reproduced from this repository alone**: the opposing brains are a third party's
+> code, read from their public repository at the time and never vendored here, so no committed
+> file or command below regenerates these two rows. They are reported because they drove a real
+> design decision, not as independently checkable evidence. The claim they support *is*
+> independently checkable, from committed data, in the strongest available form: the counted
+> match **G020 against that same opponent finished 6–0, with all six sub-game logs verified
+> untampered on both sides** ([`docs/evidence/G020/`](docs/evidence/G020/)). Treat §7.1 as the
+> evidence and this table as the design note that preceded it.
 
 The Thief result decomposes cleanly: the previous default lost 63/100, of which **every**
 loss was a Rule-46 pounce. Closing the pounce range (§3.3 constraint 1) removed all of them;
@@ -533,7 +565,7 @@ Tracked evidence: [`evidence/scenario_matchups.csv`](evidence/scenario_matchups.
 
 ### 7.3 Test suite
 
-**597 tests passing.** Coverage gate `fail_under = 85`; `ruff` lint + format; a 150-line
+**750 tests passing.** Coverage gate `fail_under = 85`; `ruff` lint + format; a 150-line
 per-file limit; and an automated secret scan — all enforced in CI
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
@@ -621,7 +653,7 @@ repository's history.**
 
 ```bash
 uv sync                                                  # install (locked)
-uv run pytest                                            # 597 tests
+uv run pytest                                            # 750 tests
 uv run python -m thief_agent series --seed 1234          # local six-sub-game series
 uv run python -m thief_agent serve --port 8002 --token dev-token          # run as a peer
 uv run python -m thief_agent netplay --opponent-url http://host:8001/mcp \
@@ -645,7 +677,7 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 | OpenAI advisor | 0 tokens | Never invoked — no key configured | **$0.00** |
 | Cloudflare Quick Tunnels | ~30 ephemeral tunnels | Free quick tunnels (no account) | **$0.00** |
 | Gmail API | 12 sends | Not metered in money; 100 quota units/send | **$0.00** |
-| GitHub — 2 public repos + CI | 99 runs, ≈179 min | Public-repository Actions are free and unmetered | **$0.00** |
+| GitHub — 2 private repos + CI | 99 runs, ≈179 min | Private-repo Actions bill against the free-plan allowance (2,000 min/month); 179 min is well inside it | **$0.00** |
 | **Total known actual cost** | | | **$0.00** |
 | **Total API-equivalent estimate** | | | **$1,308.57** |
 
@@ -698,6 +730,161 @@ standards, and §2.3 per-mechanism PRDs.)*
 **Simulation is labelled as simulation.** Everything in this section except the G020
 figures is *local offline measurement* of our engine against itself or scripted opponents.
 It is never presented as league play; the counted results live in §7.1.
+
+#### Research questions, hypotheses and answers
+
+The rulebook does not hand out numbered research questions; it asks (Appendix C §2) for a
+README that "explains the design decisions, justifies them, and presents the empirical
+evidence for their success", and the software guidelines (§9) ask for systematic experiments
+with controlled parameter variation. The four questions below are the ones this project
+actually had to answer to make design decisions, written out so that each can be followed
+end-to-end: **question → hypothesis → design → data → answer**. Every number is read from a
+committed CSV; nothing here was generated for the write-up.
+
+**Controlled throughout.** Board and scoring rules, the movement set, the legality firewall,
+seeded RNG, and one decision per turn per agent. Each experiment varies only its stated
+independent variable. Every run is seeded, so re-running the scripts reproduces the CSVs
+byte-for-byte; the reproduction commands are in §10.
+
+---
+
+**RQ1 — Do the production brains actually beat the frozen baselines, or do they only look
+better because they were tuned on easier scenarios?**
+
+*Motivation.* Both brains were replaced late. A late replacement that has been tuned against
+the scenarios it is scored on is worthless in a league against strangers.
+
+*Hypothesis (H1).* The candidate Cop and candidate Thief each beat their frozen baseline on a
+scenario set neither was tuned on, with non-overlapping 95% intervals.
+
+| | |
+|---|---|
+| Independent variable | brain version (frozen `base` vs candidate `cand`) |
+| Dependent metric | capture rate (Cop rows) / survival rate (Thief rows), Wilson 95% CI |
+| Controlled | **paired design** — both arms play the *same* 600 scenarios, so scenario difficulty cancels within-scenario; grid ∈ {7,9,11,13}, barrier budget ∈ {14,20,28}, move limit ∈ {35,45,60}, seed 12345 |
+| Baseline | the frozen `master` worktree, verified per-seed identical (`faithfulness` field) |
+| Runs | 600 scenarios per arm, 6 arms = 3,600 scenario-plays |
+| Data | [`evidence/scenario_matchups.csv`](evidence/scenario_matchups.csv), [`evidence/strategy_summary.json`](evidence/strategy_summary.json) |
+
+*Result.* Cop **0.2317 → 0.4867** (CIs [0.1967, 0.2683] vs [0.4500, 0.5267]); Thief
+**0.7683 → 0.9150** (CIs [0.7333, 0.8033] vs [0.8917, 0.9367]). Neither pair overlaps. Across
+all 3,600 plays: **0 illegal actions, 0 technical losses, 0 timeouts**.
+
+*Interpretation.* The intervals are disjoint, so the gain is not sampling noise, and the
+paired design means it is not scenario selection either. The zero-illegality column matters
+as much as the rates: a brain that won by emitting illegal moves would score nothing once the
+firewall degraded them in a real match.
+
+*Answer.* **Yes — H1 supported for both roles.** Row `D` is the candidate playing itself,
+which is why its two rates are complements rather than an independent result.
+
+*Limitation.* Both arms are our own engine. RQ4 addresses transfer to a real opponent.
+
+---
+
+**RQ2 — Is the Cop's performance sensitive to the negotiable contract parameters — i.e. can an
+opponent negotiate us into a weak operating point?**
+
+*Motivation.* Appendix F lets the opponent raise several parameters by agreement. If capture
+rate depends sharply on one of them, negotiation becomes an attack surface.
+
+*Hypothesis (H2).* Capture rate varies materially with barrier budget, move limit and
+pheromone decay, so a defensive negotiating position is needed.
+
+| | |
+|---|---|
+| Independent variables | one-at-a-time (OAT): grid size, barrier budget, move limit, pheromone decay |
+| Dependent metric | capture rate with Wilson 95% CI; p95 decision latency |
+| Controlled | all other parameters held at the agreed contract; 4 scripted opponents plus self-play |
+| Baseline | the agreed contract point (7×7, 14 barriers, 35 moves, decay 0.10), flagged `is_baseline=1` |
+| Runs | 4 parameters × 4 opponents × 200 seeds = 68 measured points |
+| Data | [`docs/research/oat_sensitivity.csv`](docs/research/oat_sensitivity.csv) |
+
+*Result.* Against every scripted opponent the capture rate is **1.00 at every setting of
+barrier budget, move limit and pheromone decay** — and also at every grid size. The only
+sub-1.00 cells in the entire sweep are self-play at 11×11 and 13×13, which drop to 0.00.
+
+*Interpretation.* **H2 is refuted**, and the refutation is the useful result: within the tested
+envelope there is no fragile operating point and nothing to tune, so no negotiable parameter
+gives an opponent leverage. Reporting flatness honestly is worth more than hunting for a curve.
+
+*Answer.* **No — not sensitive.** The one exception is self-play on large boards, which RQ3
+isolates.
+
+*Threat to validity.* Scripted opponents are weaker than a real team's agent; a ceiling at 1.00
+can hide differences a stronger opponent would expose. Self-play is the hardest available
+opponent, and it is exactly where the exception appears.
+
+---
+
+**RQ3 — Is that self-play exception a board-size limit or a search-horizon effect?**
+
+*Motivation.* The two have opposite consequences. A board-size limit means the Cop does not
+scale. A horizon effect means it simply ran out of steps — and the agreed board is 7×7 anyway.
+
+*Hypothesis (H3).* It is a horizon effect: holding the board fixed and raising only the step
+budget restores capture.
+
+| | |
+|---|---|
+| Independent variables | grid size {9, 11, 13} × step budget {35, 60, 90} — a full factorial, not OAT |
+| Dependent metric | capture rate with Wilson 95% CI; average Cop score |
+| Controlled | strongest opponent (self-play), all other parameters at contract |
+| Baseline | the 35-step contract horizon |
+| Runs | 9 cells × 60 seeds = 540 games |
+| Data | [`docs/research/horizon_interaction.csv`](docs/research/horizon_interaction.csv) |
+
+*Result.* At 35 steps: 9×9 = 1.00, 11×11 = **0.00**, 13×13 = **0.00**. Raising the budget to 60
+steps restores **1.00 at 11×11 and 13×13**, and 90 steps holds it at 1.00. Board size alone
+never breaks capture; only the interaction with the step budget does.
+
+*Interpretation.* Confirms H3. The Cop's pursuit is sound at every board size tested; on a
+larger board it needs proportionally more steps to close, which is a property of the geometry,
+not a defect. Average Cop score moves 5.0 → 20.0 across the boundary, i.e. survival becomes
+capture rather than the games becoming noisy.
+
+*Answer.* **A horizon effect.** The agreed 7×7 / 35-step contract sits well inside the
+capturing region, so the effect never arises in league play.
+
+---
+
+**RQ4 — Does measured simulation superiority transfer to real protocol play against another
+team's agent?**
+
+*Motivation.* RQ1–RQ3 all run our engine against itself or against brains we wrote. That is
+exactly the "solved the easy version" failure the rulebook warns about (§11.3).
+
+*Hypothesis (H4).* The simulated advantage survives contact with a real, hostile, independently
+written opponent over the real wire.
+
+| | |
+|---|---|
+| Independent variable | opponent — a different team's agent, on their hardware, over a public tunnel |
+| Dependent metrics | sub-games won, league points, and whether every log survives mutual audit |
+| Controlled | the cryptographically locked 14-term contract, byte-identical on both sides |
+| Baseline | the league itself — six other groups |
+| Runs | 7 counted series × 6 sub-games = 42 real sub-games |
+| Data | [`docs/evidence/`](docs/evidence/) — all 42 logs and all 42 per-game configs |
+
+*Result.* 28 sub-games won of 42; **444 raw points**; 3 wins, 2 ties, 2 losses; the last three
+series finished **6–0, 6–0, 6–0**. All 42 logs verified untampered on both sides; 6 of 7 series
+settled with `confirmed: true` (see §7.1 for the `G005` digest caveat).
+
+*Interpretation.* Transfer is real but partial, and the record says where the line falls. The
+two losses (`G002`, `G012`) came *before* the opponent-adaptive Cop and topology-first Thief
+described in §3; every series after them was won, three of the last four by a clean sweep.
+That is consistent with the improvement being genuine rather than a simulation artefact — but
+it is an observational sequence, not a controlled trial.
+
+*Answer.* **Yes, with a stated caveat.** Simulation superiority did transfer, and the strongest
+single piece of evidence is external and adversarial: three consecutive 6–0 series audited by
+the opposing team.
+
+*Threat to validity.* Opponents differ across matches and each was played once (rule #52
+forbids repeats), so the improvement over time is confounded with opponent identity. It cannot
+be separated from this data, and it is not claimed to be.
+
+---
 
 **Headline findings**
 
@@ -755,6 +942,7 @@ success criteria with the tests that check them.
 | [`docs/QUALITY-25010.md`](docs/QUALITY-25010.md) | The eight ISO/IEC 25010 product-quality characteristics mapped to evidence, including two stated weak points |
 | [`docs/COST_AUDIT.md`](docs/COST_AUDIT.md) | Full token and cost ledger (§11) |
 | [`docs/PROMPTS.md`](docs/PROMPTS.md) | Prompt-engineering log: representative prompts, three iterations where the first answer was wrong, and lessons learned |
+| [`docs/FINAL_REQUIREMENTS_AUDIT.md`](docs/FINAL_REQUIREMENTS_AUDIT.md) | Every requirement of both authoritative documents — the rulebook's 55 mandatory rules, its four checklists, and all 44 software-guideline clauses — each with its status, its evidence and how it was verified |
 
 ---
 
@@ -764,8 +952,13 @@ success criteria with the tests that check them.
 the committed tree — AST-only extraction, no LLM, no token cost — and the resulting knowledge
 graph was browsed in **Obsidian** to reverse-engineer the architecture. The snapshot analysed
 is commit `efde472` (recorded in [`docs/graphify/index.md`](docs/graphify/index.md)); every
-commit since has added documentation and the graph tooling only — no `src/`, `config/` or
-`schemas/` file has changed — so the structure described below is current.
+the graph therefore describes the tree **as of that commit**. `config/` and `schemas/` are
+unchanged since, but `src/` is not: the later interop-hardening work added
+`interop/agree.py`, `interop/cli_args.py`, `interop/guard.py`, `interop/msgcheck.py`,
+`interop/rolecommit.py`, `interop/artifacts_io.py`, `interop/inboxes.py`,
+`shared/wirecheck.py` and `strategy/corner_model.py`, so today's tree holds more nodes than
+the totals below. The two *structural* findings were re-checked against the current tree by
+hand and still hold exactly; the node and edge counts are the snapshot's.
 
 The graph holds **3,231 nodes and 7,385 edges** across 334 files in 177 communities, and
 it independently confirms three structural claims: `domain` has **no upward dependencies**
@@ -823,7 +1016,7 @@ documented in [`docs/GUI-GUIDE.md`](docs/GUI-GUIDE.md).)*
 
 ```bash
 uv sync                                    # create the environment from the committed lockfile
-uv run pytest                              # verify: 597 tests should pass
+uv run pytest                              # verify: 750 tests should pass
 uv run python -m thief_agent view                # smoke-test the agent
 ```
 
@@ -917,8 +1110,9 @@ no code or asset was copied. The full accounting is in
 are captures of our own GUI, never the reference's.
 
 **Licence status.** This repository is coursework submitted for assessment and **no
-open-source licence has been granted**; all rights are reserved by the authors. Third-party
-dependencies remain under their own licences as listed above.
+open-source licence has been granted**; all rights are reserved by the authors. The course
+staff are granted explicit permission to read, run and evaluate it. The full terms are in
+[`LICENSE`](LICENSE). Third-party dependencies remain under their own licences as listed above.
 
 ---
 
@@ -928,15 +1122,44 @@ dependencies remain under their own licences as listed above.
 
 | Item | Required | Status |
 |---|---|---|
-| Two GitHub repos accessible to the lecturer | public / shared | ✔ Police + Thief |
+| Two GitHub repos accessible to the lecturer | public / shared | ⚠ **both repos exist and are private; access must still be granted to the lecturer** — see the note below |
 | Cross-link between repos | present both ways | ✔ §6 |
 | README report components (§9.4.2) | complete in both repos | ✔ §1–§6 |
 | Belief-map (GUI) screenshot | attached | ✔ [`docs/images/thief-gui-belief-map.png`](docs/images/thief-gui-belief-map.png) — §5.1 |
 | Replay screenshot with `VERIFIED OK` | attached | ✔ [`docs/images/thief-replay-verified-ok.png`](docs/images/thief-replay-verified-ok.png) — §5.2 |
-| At least 2 games vs different groups | ≥ 2 | ✔ 5 counted, 5 different groups (§7.1) |
+| At least 2 games vs different groups | ≥ 2 | ✔ **7 counted, 7 different groups** (§7.1) |
 | End-of-game email, each group separately | both sides sent | ✔ sent for all seven counted matches (`G002`, `G005`, `G008`, `G012`, `G020`, `G040`, `G077`) |
 | No secrets in the repository | verified | ✔ §9 |
-| Annotated tag `v1.0-submission` | pushed | ✔ pushed on this commit |
+| Annotated tag `v1.0-submission` | pushed | ✔ created and pushed — **re-point it at the final commit before submitting** (see the note below) |
+
+### The two items that are not ours to close in code
+
+**Grader access.** Appendix C §1 and §9.4 accept either form — a public repository, or a
+private one *explicitly shared with the lecturer's address*. Both repositories are currently
+**private with no collaborator other than the owner**, so neither form is satisfied yet and a
+grader cannot open them. Closing this is a GitHub account action, not a code change:
+
+```bash
+# Option A - share privately with the lecturer (keeps the repos private)
+gh api -X PUT repos/AMIR13BD/Game-P2P-Cop-Chase-Police/collaborators/<lecturer-github-user> -f permission=pull
+gh api -X PUT repos/AMIR13BD/Game-P2P-Cop-Chase-Thief/collaborators/<lecturer-github-user>  -f permission=pull
+
+# Option B - make both public
+gh repo edit AMIR13BD/Game-P2P-Cop-Chase-Police --visibility public --accept-visibility-change-consequences
+gh repo edit AMIR13BD/Game-P2P-Cop-Chase-Thief  --visibility public --accept-visibility-change-consequences
+```
+
+**Submission tag.** `v1.0-submission` is an annotated tag and it is pushed, but it was cut
+before the final documentation and evidence commits, so it does not yet freeze the version
+being submitted. Appendix C is explicit that the tag exists so the grader reads *the submitted
+code and not a later one* — pointing it at an earlier commit works against that. Moving a
+published tag rewrites a ref that is already on the remote, so it is left as a deliberate
+decision rather than done automatically:
+
+```bash
+git tag -f -a v1.0-submission -m "Final submission: Police-Thief P2P, group amireman"
+git push --force origin v1.0-submission     # the only force this project needs, and only for the tag
+```
 
 Remaining actions are tracked in
 [`README_FINALIZATION_CHECKLIST.md`](README_FINALIZATION_CHECKLIST.md).

@@ -21,7 +21,7 @@ Legend: **Strong** = enforced automatically or demonstrated by a counted match �
 | Both roles implemented for six-sub-game alternation | [`strategy/`](../src/thief_agent/strategy/), README §3 |
 | Correctness demonstrated in real league play — G020, 6–0, all audits verified | [`evidence/G020/`](evidence/G020/), README §7.1 |
 | Rule compliance (R46 pounce, R47 enclosure, orthogonal-only movement) | `tests/unit/test_board_rules.py` |
-| 570 automated tests, 87%+ statement coverage | CI, README §7.3 |
+| 750 automated tests, 87%+ statement coverage | CI, README §7.3 |
 
 **Assessment: Strong.** The decisive evidence is external: a counted match against another
 team, audited by both sides.
@@ -161,3 +161,61 @@ path exists precisely for that reason).
 
 The two honest weak points are **accessibility testing** and **cross-platform
 verification**. Both are stated rather than hidden, and neither affects league play.
+
+---
+
+## Code-quality self-grade (rulebook rule #55 / §11.5 item ו)
+
+The rulebook requires a self-grade that scores **code quality only** — explicitly *not* the
+league result. That separation is the whole point of the rule: a team that went 6–0 and a team
+that lost every match can have identically good code, and scoring the scoreboard would measure
+the wrong thing. **Nothing in this section refers to match outcomes.** The league record lives
+in README §7.1 and is deliberately excluded here.
+
+Scored against the software guidelines' own enforcement table (§19.1), which is the checklist
+this project is graded on:
+
+| Guideline requirement | Threshold | Measured | Self-score |
+|---|---|---|---|
+| Test coverage | ≥ 85% | **87.99%** statement + branch, gate enforced in CI | 5 / 5 |
+| Ruff violations | 0 | **0** on every tracked file | 5 / 5 |
+| File size | ≤ 150 lines | **0 violations**, enforced on *physical* lines (stricter than §3.2) | 5 / 5 |
+| Secrets in source | 0, plus `.env-example` | **0**; scanner gates on what git would publish | 5 / 5 |
+| Package manager | everything through `uv` | `pyproject.toml` + `uv.lock`, no `pip`/`requirements.txt` | 5 / 5 |
+| SDK architecture | all business logic behind the SDK | `AgentSDK` is the single facade (ADR-1) | 5 / 5 |
+| API gatekeeper | every external call through it | token bucket + bounded queue, limits from config | 5 / 5 |
+| Rate limits from config | not hardcoded | `config/game.json` → `rate_limiter_gatekeeper` | 5 / 5 |
+| Version tracking | starts at 1.00 | `shared/version.py`, config version validated at load | 5 / 5 |
+| OOP / no duplication | extract at 2+ copies | shared bases and mixins; no duplicated protocol logic | 4 / 5 |
+| TDD | tests with or before code | 750 tests, happy and error paths, mocks for externals — but written alongside rather than strictly red-green-refactor | 4 / 5 |
+| Documentation | PRD, PLAN, TODO, per-mechanism PRDs, prompt book | all present; ADRs added late, in this audit | 4 / 5 |
+| Research and visualisation | experiments, sensitivity, notebook, charts | 4 research questions answered from committed CSVs; labelled charts; notebook | 5 / 5 |
+| Cost analysis | token ledger and optimisation | full ledger, actual vs API-equivalent kept separate | 5 / 5 |
+
+Per-criterion the table above scores **67 / 70** — eleven rows at 5, three at 4 — which is
+95.7%. That number reflects the *enforceable* criteria only, and every one of those is
+machine-checked, so it flatters the areas no gate can measure. The three process weaknesses
+below are not visible to any gate, and they are real, so the figure entered on the form marks
+them down deliberately rather than reporting the mechanical score:
+
+**Self-grade: 92 / 100** — 95.7% on the enforced criteria, less a further ~4 points for the
+three process shortfalls named next.
+
+**Where those points went, stated rather than rounded away.** The three sub-5 rows expand into
+three areas that are honestly short of the standard:
+
+1. **TDD discipline (−3).** Tests are comprehensive and cover error paths, but they were
+   largely written alongside implementation rather than strictly red-first. The guidelines ask
+   for red-green-refactor as a *process*, and the git history does not demonstrate it.
+2. **Documentation process (−3).** Every mandatory document exists, but the ADRs
+   ([`PLAN.md`](PLAN.md)) were written retrospectively during this audit rather than before the
+   code, which inverts the §2.5 workflow. `docs/TODO.md` also carries 766 planned atoms whose
+   named files were never created — reconciled and explained rather than deleted.
+3. **Coverage distribution (−2).** The 87.99% global figure clears the bar, but it is not
+   evenly spread: `strategy/predict.py` sits at 26% and `strategy/search.py` at 61%, and
+   `sim/opponents/uoh.py` is at 0% — an unused sparring adapter that should be either exercised
+   or removed.
+
+Two further known weaknesses are recorded in the summary above and not double-counted here:
+no assistive-technology testing, and verification on a single platform (Linux/WSL2, Python
+3.13).

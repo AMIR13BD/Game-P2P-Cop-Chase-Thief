@@ -11,6 +11,137 @@
 - The six documents are **created and approved documentation** (not committed — Git is not initialized in this phase).
 - External blocker: the official Step-0 signing key is `BLOCKED-EXTERNAL`; the signer stays pluggable (dev/test signer used until then).
 
+## Architecture decision records (ADRs)
+
+*(Software guidelines §2.2: architectural decisions with rationale, trade-offs and
+alternatives.) The C4 views, the deployment/network view and the module map that these
+decisions produced are in [`ARCHITECTURE.md`](ARCHITECTURE.md); the per-mechanism PRDs
+(`PRD_*.md`) carry the algorithm-level decisions. Recorded retrospectively during the final
+audit — these are the decisions the code actually embodies, each stated with the alternative
+that was rejected and the price paid.*
+
+### ADR-1 — One SDK facade is the only entry point to business logic
+
+**Decision.** Every business operation is reachable through `AgentSDK`
+([`sdk/sdk.py`](../src/thief_agent/sdk/sdk.py)): local series, networked series, batch
+simulation, artifact emit/verify, counted-match audit. CLI, GUI and any third-party consumer
+delegate to it and never import `domain/`, `peer/` or `report/` directly.
+
+**Alternatives rejected.** (a) Let the CLI call domain services directly — fewer layers, but
+the GUI would then re-implement the same orchestration and the two would drift. (b) Expose
+each subsystem as its own public module — no single place to state the contract.
+
+**Trade-off.** One more indirection on every call, and the facade must be kept in step with the
+subsystems behind it. Accepted because it is what makes "the GUI cannot cheat" checkable in one
+file rather than argued across ten.
+
+### ADR-2 — The domain layer has no upward dependencies
+
+**Decision.** `domain/` (board, rules, movement, crypto, scoring, scent) imports only
+`constants.py` and `exceptions.py`. Nothing in `domain/` knows that a network, a GUI or a
+strategy exists.
+
+**Alternatives rejected.** Letting rules call into the strategy layer for context-sensitive
+legality — convenient, but it makes the rules untestable in isolation and lets a strategy bug
+become a rules bug.
+
+**Trade-off.** Some data has to be threaded through call signatures rather than reached for.
+Verified rather than asserted: the Graphify extraction found the only outbound edges from
+`domain` reach `exceptions.py`/`constants.py`, and it still holds on the current tree (README §12.4).
+
+### ADR-3 — Move decisions are deterministic Python; the language model touches only text
+
+**Decision.** Every move and barrier placement is decided in Python from a seeded RNG and the
+belief map. The LLM layer produces verbal hints only, and never sees or influences the action.
+
+**Alternatives rejected.** Mapping an LLM completion directly to a move — permitted by the
+rulebook as a strategy option, and rule #25 explicitly warns against it.
+
+**Trade-off.** Gives up whatever a language model might contribute tactically. Bought three
+things that matter more: exact reproducibility from a seed, zero gameplay token cost (README
+§11), and immunity to a hallucinated illegal move becoming a technical loss.
+
+### ADR-4 — A legality firewall wraps every brain, and degrades instead of failing
+
+**Decision.** `strategy/firewall.py` validates each proposed action against the real rules and
+substitutes `safe_fallback` when a brain proposes something illegal, rather than raising.
+
+**Alternatives rejected.** Trusting brains to be correct (one bug in one experimental brain
+then forfeits a counted match); or raising on illegality (turns a strategy bug into a crash
+mid-series, which scores the same as cheating).
+
+**Trade-off.** A silently-degraded action can mask a brain bug in production, so the benchmark
+counts illegal proposals explicitly — the 3,600-play run in README §12.1 reports zero, which is
+what makes the firewall's silence trustworthy.
+
+### ADR-5 — Both peers hash canonical JSON, not serialised bytes
+
+**Decision.** `domain/crypto.py::canonical_json` emits key-sorted, compact,
+`ensure_ascii=False` JSON, and commitments are SHA-256 over that string plus a per-step nonce.
+
+**Alternatives rejected.** Hashing whatever `json.dumps` produced locally — works perfectly
+until the opposing implementation orders keys differently, at which point every commitment
+mismatches and both teams score zero under rule #19.
+
+**Trade-off.** Canonicalisation cost on every step, and a format both sides must agree on
+exactly. This is the single decision that made cross-implementation audits pass; where it was
+*not* applied — the result envelope, which is not covered by this rule — is exactly where the
+`G005` digest mismatch appeared (README §7.1).
+
+### ADR-6 — Each repository ships a full dual-role agent
+
+**Decision.** Both repositories contain both portfolios (`POLICE_PORTFOLIO` and
+`THIEF_PORTFOLIO` in `strategy/registry.py`); they differ in natural role and package name,
+not in capability.
+
+**Alternatives rejected.** A Cop-only repo and a Thief-only repo, which is the naive reading of
+"two repositories". It cannot work: the contract alternates roles across the six sub-games, so
+a single-role agent forfeits half of every series.
+
+**Trade-off.** Deliberate duplication between two repositories, which has to be kept in sync by
+hand. The rulebook mandates two separate submissions (§9.4), so a shared library is not
+available; sync is enforced by making the same audit run over both.
+
+### ADR-7 — The viewers are text-first, with Tk as an optional shell
+
+**Decision.** Board rendering, belief heatmap, per-step verification and the `VERIFIED OK` /
+`TAMPERED` verdict are computed as text (`gui/board_view.py`, `gui/replay_verify.py`); the Tk
+windows (`gui/tk_*.py`) are a presentation layer imported only when a window is requested.
+
+**Alternatives rejected.** Building the viewer directly on Tk — which makes the integrity
+verdict untestable in CI, where no display exists.
+
+**Trade-off.** Two rendering paths to maintain. In exchange the mandatory `VERIFIED OK`
+evidence is produced by tested code, and every replay assertion runs headless.
+
+### ADR-8 — The gatekeeper queues under load rather than rejecting
+
+**Decision.** `shared/gatekeeper.py` admits up to `concurrent_requests + queue_depth`, refuses
+beyond that with `QueueFullError`, and gates rate with a token bucket
+(`shared/rate_limiter.py`). All four limits come from `config/game.json`, never from source.
+
+**Alternatives rejected.** Rejecting immediately at the concurrency limit — simpler, but turns
+an ordinary burst into lost turns; and an unbounded queue, which converts a flood into memory
+exhaustion instead of a clean refusal.
+
+**Trade-off.** A queued request sees latency instead of an error. Bounded, so backpressure is
+still observable rather than silent.
+
+### ADR-9 — The 150-line limit is enforced on physical lines
+
+**Decision.** `scripts/check_line_count.py` fails CI when any tracked `.py` exceeds 150
+*physical* lines, blanks and comments included.
+
+**Alternatives rejected.** The guidelines' own definition (§3.2), which excludes blank and
+comment lines — the looser reading, and one that quietly rewards stripping documentation to
+fit.
+
+**Trade-off.** Strictly harder to satisfy than required, and it forced genuine module splits
+across `interop/` and `gui/`. Chosen because a limit that penalises comments is the wrong
+incentive in a project graded on documentation.
+
+---
+
 ## Phase-dependency table (acyclic; every dependency points backward)
 
 | Phase | Title | Direct dependencies | Blocking deliverables | Parallelizable with |

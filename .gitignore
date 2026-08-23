@@ -21,3 +21,14 @@ artifacts_net/
 rehearsal_evidence/
 rehearsal_tampered/
 rehearsal_down/
+
+# Local networked-play and benchmark outputs (per-run working data; never committed).
+# Counted-match evidence lives in docs/evidence/, copied there deliberately.
+runs/
+bench/
+final_local_6game/
+local_smoke_*/
+persistent_run_*/
+public_smoke*/
+public_localtonet_*/
+NEXT_OPPONENT_*.md
