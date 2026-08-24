@@ -403,13 +403,27 @@ untampered on both sides.
 | `G005` | `saedshki` | 47 : 47 | 3 : 3 | tie | 6/6 ✔ | [`docs/evidence/G005/`](docs/evidence/G005/) |
 | `G008` | `sharNamr` | 47 : 47 | 3 : 3 | tie | 6/6 ✔ | [`docs/evidence/G008/`](docs/evidence/G008/) |
 | `G012` | `ahk-yosi` | 40 : 60 | 2 : 4 | loss | 6/6 ✔ | [`docs/evidence/G012/`](docs/evidence/G012/) |
-| `G020` | `Orcai-MJ` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G020/`](docs/evidence/G020/) |
-| `G040` | `salareen` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G040/`](docs/evidence/G040/) |
-| `G077` | `ali-ahm1` | **90 : 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G077/`](docs/evidence/G077/) |
-| **Total** | **7 series** | **444** | **28 : 14** | **3 wins · 2 ties · 2 losses** | **42/42 ✔** | all seven replayable |
+| `G020` | `Orcai-MJ` | **90** *(+10 diversity)* **: 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G020/`](docs/evidence/G020/) |
+| `G040` | `salareen` | **90** *(+10 diversity)* **: 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G040/`](docs/evidence/G040/) |
+| `G077` | `ali-ahm1` | **90** *(+10 diversity)* **: 30** | **6 : 0** | **win** | 6/6 ✔ | [`docs/evidence/G077/`](docs/evidence/G077/) |
+| **Total** | **7 series** | **444 raw** *(+30 diversity)* **= 474** | **28 : 14** | **3 wins · 2 ties · 2 losses** | **42/42 ✔** | all seven replayable |
 
 This satisfies the "at least two games against different groups" threshold with seven.
-Raw counted total across all seven series: **444 points**.
+
+**How the total is composed.** The rulebook awards a *diversity reward* of **10 points for a
+win against a new opponent** (Appendix F, Table 18). Rule 52 allows exactly one counted series
+per opponent, so every opponent here is a new one, and each of our three series wins earns it:
+
+| Component | Value |
+|---|---:|
+| Raw counted game score across all seven series | **444** |
+| Diversity reward — 3 wins × 10 (`G020`, `G040`, `G077`) | **+30** |
+| **Total including the diversity reward** | **474** |
+
+The **444** is the raw figure the signed `result_*.json` artifacts add up to, and it is the
+number those artifacts contain; the diversity reward is a league-level award applied on top
+of them, not a change to any recorded match result. The final league standing is computed by
+the lecturer.
 
 **Every counted match is replayable from this repository.** All seven series ship their six
 `log_*.json` records *and* the six cryptographically locked `config_*.json` files they were
