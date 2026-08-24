@@ -30,16 +30,21 @@ committed artifact or a command that was actually run during this audit.
 
 | Source | Requirements | PASS | PARTIAL | FAIL | N/A |
 |---|---:|---:|---:|---:|---:|
-| **A — assignment rulebook** | **90** | **72** | **3** | **2** | **5** |
-| **B — software guidelines** | **44** | **38** | **4** | 0 | **1** |
+| **A — assignment rulebook** | **90** | **79** | **4** | **2** | **5** |
+| **B — software guidelines** | **43** *(+1 note row)* | **38** | **4** | 0 | **1** |
 
 Source B classification: `MANDATORY_FOR_PROJECT` 29 · `APPLICABLE_EXCELLENCE` 13 ·
 `NOT_APPLICABLE` 1 · `CONFLICTS_WITH_ASSIGNMENT` **0** — no clause of Source B was found
 to contradict Source A.
 
+> **Counting note.** Source A's 90 rows are A1 (55 Appendix-E rules) + A2 (6) + A3 (9) +
+> A4 (5) + A5 checklist (8) + A5 Moodle (7); statuses sum 79 + 4 + 2 + 5 = 90. Source B's
+> table has 44 rows, of which 43 carry a status; the §19 row is an explanatory note, not a
+> requirement, so it is excluded from the totals.
+
 ```
 MANDATORY_FAIL_COUNT=2
-MANDATORY_PARTIAL_COUNT=3
+MANDATORY_PARTIAL_COUNT=4
 EXCELLENCE_GAPS=4
 ```
 
@@ -279,7 +284,7 @@ parameters match the mandatory table exactly; no `קבוע` (fixed) parameter de
 | 15 | Parallel processing and thread safety | NOT_APPLICABLE | N/A | The rulebook mandates a strictly turn-based protocol with one decision per turn per agent, so CPU parallelism would change protocol semantics. Concurrency is genuinely present but as bounded async I/O — `anyio` in `infra/reliability.py`, with concurrency capped by the gatekeeper — which is the I/O-bound case §15.1 describes |
 | 16 | Building-block design: declared inputs, outputs, setup, validation, single responsibility, testability | APPLICABLE_EXCELLENCE | PASS | `BrainBase` declares Input `Observation`, Output `Action`, Setup role/seed/config, with validation delegated to the firewall; `Gatekeeper` and `ReliableCaller` follow the same shape and are dependency-injected in tests |
 | 17 | Final checklist across all six areas | MANDATORY_FOR_PROJECT | PASS | This document, plus `docs/COMPLIANCE-CHECKLIST.md` and `docs/SUBMISSION-CHECKLIST.md` |
-| 19 | Not every clause is obligatory; depth is what is graded | — | — | Recorded verbatim so that the three `PARTIAL` rows above are read as declared shortfalls rather than hidden ones |
+| 19 | Not every clause is obligatory; depth is what is graded | — | — | Recorded verbatim so that the four `PARTIAL` rows above are read as declared shortfalls rather than hidden ones |
 
 ### The one NOT_APPLICABLE row, with its reason
 

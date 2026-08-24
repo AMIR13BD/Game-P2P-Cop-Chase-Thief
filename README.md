@@ -566,9 +566,23 @@ Tracked evidence: [`evidence/scenario_matchups.csv`](evidence/scenario_matchups.
 
 ### 7.3 Test suite
 
-**750 tests passing.** Coverage gate `fail_under = 85`; `ruff` lint + format; a 150-line
-per-file limit; and an automated secret scan — all enforced in CI
+**750 tests passing, 87.99% coverage** — *statement and branch* (`branch = true` in
+`pyproject.toml`), against a `fail_under = 85` floor. That floor is **enforced** in CI, not
+merely configured: the workflow runs `pytest --cov`, so the suite fails if coverage drops
+below 85%. Alongside it CI runs `ruff` lint and format checks, a 150-line per-file limit and
+an automated secret scan — the same five gates listed in §13.5
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+**How the suite is organised** — full detail in [`docs/TESTING.md`](docs/TESTING.md):
+
+* [`tests/unit/`](tests/unit/) — pure logic against fakes and brute-force oracles.
+* [`tests/integration/`](tests/integration/) — end-to-end runs, including two real peer
+  processes talking over a live local transport.
+* [`tests/conftest.py`](tests/conftest.py) — shared fixtures.
+* External dependencies are **mocked or faked** — Gmail, the OpenAI advisor and the tunnel
+  providers are all exercised through injected doubles, never contacted.
+* **No test depends on a live external service.** The networked tests spawn a peer on
+  `127.0.0.1`; the suite runs offline.
 
 ```bash
 uv run pytest                                   # full suite
@@ -590,7 +604,7 @@ uv run python scripts/check_line_count.py       # size gate
 | PLAN | [`docs/PLAN.md`](docs/PLAN.md) |
 | TODO | [`docs/TODO.md`](docs/TODO.md) |
 | Screenshots | [`docs/images/`](docs/images/) |
-| Replay evidence (official G020) | [`docs/evidence/G020/`](docs/evidence/G020/) |
+| Replay evidence — **all 7 counted series** | [`docs/evidence/`](docs/evidence/) — `G002` `G005` `G008` `G012` `G020` `G040` `G077`; each holds its six sub-game logs and the six cryptographically locked per-game configs (§7.1) |
 | Cost ledger | [`docs/COST_AUDIT.md`](docs/COST_AUDIT.md) |
 
 Source layout (`src/thief_agent/`): `domain/` board, rules, capture, scent, scoring, crypto ·
@@ -599,10 +613,31 @@ Source layout (`src/thief_agent/`): `domain/` board, rules, capture, scent, scor
 Gmail · `security/` signing, auth · `report/` artifacts and verification · `gui/` live view
 and replay · `sim/` evaluation harness · `sdk/` public facade.
 
-Further reading: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
-[`docs/MECHANISMS.md`](docs/MECHANISMS.md), [`docs/API.md`](docs/API.md),
-[`docs/TESTING.md`](docs/TESTING.md), [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md),
-[`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+**Architecture and planning documents**
+
+| Document | What a reviewer will find in it |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | **C4 Levels 1–4** (system context, containers, components, code) and the **deployment / network view**, drawn as six mermaid diagrams |
+| [`docs/PLAN.md`](docs/PLAN.md) | The phase plan and **nine Architecture Decision Records (ADR-1 … ADR-9)**, each with the alternative rejected and the trade-off accepted |
+| [`docs/API.md`](docs/API.md) | The MCP tool surface, wire schemas and data contracts |
+| [`docs/MECHANISMS.md`](docs/MECHANISMS.md) | How the individual mechanisms fit together |
+| [`docs/TESTING.md`](docs/TESTING.md) | Test layout, gate configuration and how to reproduce every check |
+| [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) | Adversarial cases, boundary conditions and the defences for each |
+| [`docs/OPERATIONS.md`](docs/OPERATIONS.md) | **Deployment**: the two-machine launch order, public tunnelling, replay, GUI, Gmail and recovery |
+| [`docs/REUSE-REGISTER.md`](docs/REUSE-REGISTER.md) | What was consolidated to keep the codebase DRY, and what was studied but not copied |
+
+**Versioning.** `CODE_VERSION = "1.00"` and `CONFIG_VERSION = "1.00"` live in
+[`shared/version.py`](src/thief_agent/shared/version.py); the package exports `__version__`
+([`__init__.py`](src/thief_agent/__init__.py)), and `check_config_version` validates the
+loaded config's declared version at startup, failing closed on an incompatible value.
+
+**Extension point.** The strategy layer is the designed place to extend: a new brain
+subclasses `BrainBase` ([`strategy/base.py`](src/thief_agent/strategy/base.py)) and overrides
+`_pick_move` (a Cop also chooses its barrier in `_decide_move`). It is then registered in
+the portfolio map in [`strategy/registry.py`](src/thief_agent/strategy/registry.py) and selected
+at run time by the `POLICE_STRATEGY` / `THIEF_STRATEGY` configuration keys — no core file
+is edited to add one. This is the extension mechanism the rulebook's Appendix F, Table 22
+describes.
 
 ---
 
