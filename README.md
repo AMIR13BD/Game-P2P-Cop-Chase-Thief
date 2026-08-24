@@ -34,6 +34,7 @@ Department of Computer Science, *Orchestration of AI Agents*, final project 2026
 12. [Repository research and quality docs](#12-repository-research-and-quality-docs)
 13. [Installation, troubleshooting and contribution](#13-installation-troubleshooting-and-contribution)
 14. [Submission checklist](#14-submission-checklist)
+15. [Specification interpretations](#15-specification-interpretations)
 
 ---
 
@@ -1163,6 +1164,112 @@ git push --force origin v1.0-submission     # the only force this project needs,
 
 Remaining actions are tracked in
 [`README_FINALIZATION_CHECKLIST.md`](README_FINALIZATION_CHECKLIST.md).
+
+---
+
+---
+
+## 15. Specification interpretations
+
+*(Front matter, "Academic freedom in case of a contradiction", printed p. v.) The rulebook
+states that where the book appears to dictate two different behaviours, a team may choose one
+and proceed — **provided the report says where the tension was found, what was chosen, and
+why** — and that a reasoned, documented choice will not be held against them. It also fixes
+the mandatory parameter table (Appendix F) as the sole authority for numeric values, which is
+how every quantitative question here was settled.*
+
+Three places required a decision. Only the first is a genuine tension between two defensible
+readings; the other two are points where the book fixes the obligation but not the mechanism,
+and we record the mechanism we chose so a grader is not left inferring it. **All three
+describe behaviour that is already implemented, tested and used in every counted series — this
+section documents the existing system, it does not propose anything.**
+
+### 15.1 Capture is a declared handshake, not inferred co-location
+
+**The tension.** Chapter 3 defines capture through the win-condition table (§3.5, Table 2),
+and Appendix E adds that a barrier placed on the Thief's occupied cell counts as a capture
+(rule 46) and that a Thief left with no legal move is also captured (rule 47). Read one way,
+capture is a fact about coordinates: if the two agents occupy the same cell, the Cop has won.
+Read another way, capture is a protocol *event* — the Cop declares it and the Thief answers
+truthfully, which is what rules 21 and 22 police when they forbid both false capture claims
+and denial of a real one.
+
+**What we chose.** Capture is always a declared handshake. Our Cop emits a Capture Claim for
+its own post-move cell on **every** Police turn — including turns where it stays put or spends
+a barrier — with no belief-map or scent gating
+([`peer/net_engine.py`](src/thief_agent/peer/net_engine.py)). The Thief answers truthfully:
+co-location produces `caught=true` and ends the sub-game, a miss costs nothing and produces
+`caught=false`. Both halves are sealed into the signed commit-reveal records, so the claim and
+the answer are auditable after the fact rather than reconstructed from positions.
+
+**Why.** Declaring unconditionally removes an entire class of disputes. A Cop that claims only
+when it believes it has won makes capture depend on its private belief state, which the
+opponent cannot verify and which the audit cannot replay; an unconditional claim makes the
+declaration itself the evidence, exactly as rules 21–22 assume. It also fails safe against the
+opposite error: a legal landing can never be silently missed because the Cop happened not to
+suspect it. The cost is one extra field per Police turn and a `caught=false` on most of them —
+a price we judged obviously worth paying, and it consumes no additional tokens.
+
+Covered by [`tests/unit/test_interop_capture_semantics.py`](tests/unit/test_interop_capture_semantics.py),
+[`test_interop_caught_transition.py`](tests/unit/test_interop_caught_transition.py) and
+[`test_interop_caught_hold.py`](tests/unit/test_interop_caught_hold.py); the design rationale
+is in [`docs/PRD_ringbreaker.md`](docs/PRD_ringbreaker.md).
+
+### 15.2 Step-0 rides inside the commit-reveal chain
+
+**The gap.** Chapter 5 requires a cryptographic hardware declaration before play (Appendix E
+rule 24), and Appendix E rule 53 requires each side to record the GitHub commit its code ran
+on for that sub-game. The book fixes *what* must be declared; it does not fix *how* the
+declaration travels, and a side channel would satisfy a literal reading.
+
+**What we chose.** Step-0 is the **first sealed record of every sub-game**, not a side
+channel. `make_step0_record` builds a payload of `{step: 0, type: "system_spec", spec,
+code_version, group_name, sub_game_number, github_commit}`, hashes it with a fresh nonce, and
+signs it ([`peer/sealing.py`](src/thief_agent/peer/sealing.py)). It is therefore covered by
+exactly the same SHA-256 commitment and mutual audit as gameplay turns, and it is visible as
+`records[0]` in every log committed under [`docs/evidence/`](docs/evidence/).
+
+**Why, and its limits.** Putting the declaration inside the chain means a hardware or commit
+claim cannot be revised after the sub-game it describes without breaking that sub-game's
+audit. We read the peer's commit only from material the peer itself signed — its negotiated
+identity, or the Step-0 record it reveals during audit — and never synthesise or carry a value
+between sub-games ([`interop/commits.py`](src/thief_agent/interop/commits.py)). To be precise
+about the guarantee: this binds the declaration to the sub-game and makes tampering detectable,
+it does **not** attest that the declared hardware or commit is truthful. Nothing in the
+protocol can verify that a peer really ran the commit it names; the mechanism makes the claim
+immutable and attributable, not independently confirmed.
+
+Covered by [`tests/unit/test_step0_audit.py`](tests/unit/test_step0_audit.py) and
+[`test_interop_peer_commit_sources.py`](tests/unit/test_interop_peer_commit_sources.py).
+
+### 15.3 Series settlement is a separate envelope from sub-game results
+
+**The gap.** Rule 35 requires both sides to agree the result and each to file its own report;
+rule 36 requires a full mutual log audit at the end of every game. Both obligations use the
+same audit channel, and the book does not say whether the series-level agreement should be
+carried as another audit message or as something distinct.
+
+**What we chose.** The series consensus travels in its own final-audit envelope, tagged
+`result_claim = "series_consensus"` and carrying an **empty record list**
+([`interop/series.py`](src/thief_agent/interop/series.py)). A settlement message therefore has
+no sub-game records in it and structurally cannot overwrite a completed sub-game outcome. We
+accept the peer's digest only when the envelope matches exactly, and fail closed otherwise;
+`sha_match` is set only when the peer's digest was actually received *and* is byte-identical
+to ours.
+
+**Why, and what it exposed.** Keeping settlement separate means the six sub-game verdicts are
+final once audited, and a late, malformed or hostile settlement message cannot retroactively
+edit them. It also keeps two genuinely different failures distinguishable — disagreeing about
+a result, versus disagreeing about how the result record is serialised. That distinction is
+not hypothetical: in the counted series `G005` the scores were mutually agreed
+(`results_agreed: true`) while the settlement digests differed (`sha_match: false`, so
+`confirmed: false`), because the opponent serialised the report envelope to a different field
+shape. The sub-game outcomes stood, and the divergence is recorded rather than smoothed over —
+see [§7.1](#71-league-matches-played-counted) and
+[`docs/evidence/G005/README.md`](docs/evidence/G005/README.md).
+
+Covered by [`tests/unit/test_interop_consensus_envelope.py`](tests/unit/test_interop_consensus_envelope.py)
+and [`test_consensus_historical.py`](tests/unit/test_consensus_historical.py).
 
 ---
 
