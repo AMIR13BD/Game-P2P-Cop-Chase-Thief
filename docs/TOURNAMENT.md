@@ -30,6 +30,12 @@ Full record (seeds, opponent sets, per-strategy tuning + held-out scores, runtim
 [`docs/tournament/champions.json`](tournament/champions.json).
 
 ## Results (held-out, tuning seeds 1–5, held-out seeds 100–105; 484 bounded games)
+
+> **These champions are a historical selection round, not today's defaults.** They were chosen
+> from the `MetaController` portfolio before the opponent-adaptive brains existed. Production
+> now defaults to `RingBreakerBrain` (Cop) and `AntiSqueezeBrain` (Thief) — see
+> [`strategy/production.py`](../src/thief_agent/strategy/production.py) and README §3. The
+> methodology above is current; the two figures below are the record of that earlier round.
 - **Police champion: `barrier`** — held-out capture rate **0.583** (others 0.29–0.33).
 - **Thief champion: `endgame`** — held-out survival rate **0.958** (others 0.708–0.75).
 

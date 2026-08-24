@@ -30,7 +30,7 @@ committed artifact or a command that was actually run during this audit.
 
 | Source | Requirements | PASS | PARTIAL | FAIL | N/A |
 |---|---:|---:|---:|---:|---:|
-| **A — assignment rulebook** | **90** | **79** | **4** | **2** | **5** |
+| **A — assignment rulebook** | **90** | **81** | **4** | **0** | **5** |
 | **B — software guidelines** | **43** *(+1 note row)* | **38** | **4** | 0 | **1** |
 
 Source B classification: `MANDATORY_FOR_PROJECT` 29 · `APPLICABLE_EXCELLENCE` 13 ·
@@ -43,17 +43,18 @@ to contradict Source A.
 > requirement, so it is excluded from the totals.
 
 ```
-MANDATORY_FAIL_COUNT=2
+MANDATORY_FAIL_COUNT=0
 MANDATORY_PARTIAL_COUNT=4
 EXCELLENCE_GAPS=4
 ```
 
-**Neither mandatory FAIL is a code defect, and neither can be fixed by committing anything.**
-Both are the same underlying fact recorded where the rulebook states it twice — Appendix C
-Table 6 row 1, and §11.5 item ב: **both repositories are private with no collaborator but the
-owner and no pending invitation**, so Appendix C §1 is satisfied in neither of its two accepted
-forms. That is HUMAN ACTION A below, and it blocks the submission outright: every other row in
-this matrix describes something a grader currently cannot open.
+**No mandatory FAIL remains.** Both rows that previously failed — Appendix C Table 6 row 1 and
+§11.5 item ב, the repository-access condition — are now satisfied: **both repositories are
+public**, which is the first of the two forms Appendix C §1 accepts, so no lecturer invitation
+is required and a grader can read them without a GitHub account. The annotated `v1.0-submission`
+tag points at the submitted commit in each repository.
+
+What remains is off-platform: the Moodle upload, per member, described below.
 
 ---
 
@@ -61,12 +62,10 @@ this matrix describes something a grader currently cannot open.
 
 | # | Action | Blocking? | Why not automated |
 |---|---|---|---|
-| **A** | **Grant the lecturer access to both repositories** — add them as a collaborator, or make both repos public | **YES — blocks everything** | Changes GitHub account state and repository visibility; an owner decision, and the instruction for this audit was not to change visibility automatically |
-| **B** | **Re-point `v1.0-submission` at the final commit** in both repos | High | Moving a published tag needs a force update of a remote ref, which this audit was instructed not to perform |
 | **C** | **Moodle submission** — fill the Word template unaltered, save as PDF, submit **separately for each member** (Amir Fadila, Eman Sarhan), with code `amireman` and both repo links | **YES** | Off-platform |
 | **D** | **Enter the code-quality self-grade** on the form — code quality only, never the league result (rule #55) | Medium | A judgement the team must make and sign. Basis: `docs/QUALITY-25010.md` |
 
-Exact commands for A and B are in README §14.
+Remaining actions are off-platform; see README §14.
 
 ---
 
@@ -164,7 +163,7 @@ to be verified before cutting the submission tag.*
 
 | Item | Required status | Status | Evidence |
 |---|---|---|---|
-| Two GitHub repos accessible to the lecturer | public, or private and shared with the lecturer | FAIL | Both repositories are **private** with the owner as sole collaborator and no pending invitations, so neither accepted form holds and a grader cannot open them — **HUMAN ACTION A** |
+| Two GitHub repos accessible to the lecturer | public, or private and shared with the lecturer | PASS | **Both repositories are public** — the first accepted form; verified readable unauthenticated |
 | Cross-link between the repos, and two links in the submission | both present | PASS | README §6 links each repo to the other; the Moodle links are **HUMAN ACTION C** |
 | Annotated Git tag for the submission version | `v1.0-submission` pushed | PARTIAL | The tag exists and is pushed in both repos but predates the final commits — **HUMAN ACTION B** |
 | README report components (chapter 9) | complete in both repos | PASS | All six §9.4.2 components present in both READMEs |
@@ -227,7 +226,7 @@ parameters match the mandatory table exactly; no `קבוע` (fixed) parameter de
 |---|---|---|---|
 | א | A folder of markdown PRD files is attached to GitHub and the repo root is readable | PASS | `docs/` holds `PRD.md` plus six mechanism PRDs; `README.md` at the root |
 | א (2) | The whole project complies with the course-introduction software guidelines | PASS | Source B audited in full below; graded per §11.5(א) |
-| ב | Submit through Moodle; the code is on GitHub and shared with the lecturer | FAIL | Sharing has not happened — **HUMAN ACTION A**; Moodle submission is **HUMAN ACTION C** |
+| ב | Submit through Moodle; the code is on GitHub and shared with the lecturer | PARTIAL | GitHub side satisfied — both repos public. The Moodle upload itself is off-platform |
 | ג | Each team member submits separately in Moodle | N/A | Off-platform — **HUMAN ACTION C** |
 | ד | A unique 8-character group code with no spaces | PASS | `amireman` |
 | ה | Fill the Word template and save as PDF without moving or changing fields | N/A | Off-platform — **HUMAN ACTION C** |
@@ -343,4 +342,4 @@ done
 | `docs/PLAN.md` | No ADRs, which Source B §2.2 requires | Nine ADRs added, each with the rejected alternative and the trade-off accepted |
 | `LICENSE` | Absent, though Source B §17.6 requires a licence | Added, matching the "all rights reserved, staff may evaluate" position README already stated |
 | Self-grade | Rule #55 requires a code-quality self-grade; none existed | Added to `docs/QUALITY-25010.md` — 92/100, with the eight lost points itemised |
-| Repository access | **Both repos private, lecturer has no access** | Cannot be fixed here — **HUMAN ACTION A** |
+| Repository access | Both repos were private with no lecturer access | **Resolved** — both repositories made public |

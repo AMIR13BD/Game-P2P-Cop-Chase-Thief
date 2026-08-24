@@ -50,12 +50,12 @@ up to 13×13 boards; behaviour beyond that is untested.
 | Byte-identical canonical JSON so both peers hash the same bytes | [`domain/crypto.py`](../src/thief_agent/domain/crypto.py) |
 | Wire format interoperable with the reference implementation | [`interop/wire.py`](../src/thief_agent/interop/wire.py), [`REUSE-REGISTER.md`](REUSE-REGISTER.md) |
 | Negotiation refuses on protocol/schema mismatch instead of guessing | [`peer/handshake.py`](../src/thief_agent/peer/handshake.py) |
-| Proven against four independent teams' implementations | README §7.1 (5 counted matches) |
+| Proven against seven independent teams' implementations | README §7.1 (7 counted matches) |
 | Version change does not break peers — `code_version` is reported, never compared | [`shared/version.py`](../src/thief_agent/shared/version.py) |
 | Scent emission has an interop-compatible mode alongside our own | `compat_update`, [`PRD_scent_stigmergy.md`](PRD_scent_stigmergy.md) |
 
 **Assessment: Strong.** Interoperability is the hardest thing in this project to fake and
-the easiest to verify: five counted matches with four different opponent codebases.
+the easiest to verify: seven counted matches against seven different opponent codebases.
 
 ## 4. Usability
 

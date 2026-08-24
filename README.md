@@ -727,7 +727,7 @@ Optional Gmail extra (only needed to actually send the report): `uv sync --extra
 | OpenAI advisor | 0 tokens | Never invoked — no key configured | **$0.00** |
 | Cloudflare Quick Tunnels | ~30 ephemeral tunnels | Free quick tunnels (no account) | **$0.00** |
 | Gmail API | 12 sends | Not metered in money; 100 quota units/send | **$0.00** |
-| GitHub — 2 private repos + CI | 99 runs, ≈179 min | Private-repo Actions bill against the free-plan allowance (2,000 min/month); 179 min is well inside it | **$0.00** |
+| GitHub — 2 public repos + CI | 99 runs, ≈179 min | Actions minutes are free and unmetered on public repositories | **$0.00** |
 | **Total known actual cost** | | | **$0.00** |
 | **Total API-equivalent estimate** | | | **$1,308.57** |
 
@@ -941,7 +941,9 @@ be separated from this data, and it is not claimed to be.
 ![Paired strategy benchmark](docs/images/chart-strategy-benchmark.png)
 
 *Method.* Six matchups, 600 scenarios each, varying grid size, barrier budget and move
-limit. `base` is the frozen baseline brain, `cand` the candidate that became production.
+limit. `base` is the frozen baseline brain, `cand` the candidate that became the production default at
+the time of this benchmark. That default was later replaced again — see §3 and §7.2 — so `cand`
+here is the `MetaController` portfolio generation, not today's brains.
 The design is **paired**: both arms play the *same* scenario set, so scenario difficulty
 cancels out and the comparison is within-scenario rather than between samples. Bars show
 the win rate for the named role — capture rate for a Cop row, survival rate for a Thief
@@ -1172,7 +1174,7 @@ staff are granted explicit permission to read, run and evaluate it. The full ter
 
 | Item | Required | Status |
 |---|---|---|
-| Two GitHub repos accessible to the lecturer | public / shared | ⚠ **both repos exist and are private; access must still be granted to the lecturer** — see the note below |
+| Two GitHub repos accessible to the lecturer | public / shared | ✔ **both repositories are public** — readable without a GitHub account |
 | Cross-link between repos | present both ways | ✔ §6 |
 | README report components (§9.4.2) | complete in both repos | ✔ §1–§6 |
 | Belief-map (GUI) screenshot | attached | ✔ [`docs/images/thief-gui-belief-map.png`](docs/images/thief-gui-belief-map.png) — §5.1 |
@@ -1180,36 +1182,20 @@ staff are granted explicit permission to read, run and evaluate it. The full ter
 | At least 2 games vs different groups | ≥ 2 | ✔ **7 counted, 7 different groups** (§7.1) |
 | End-of-game email, each group separately | both sides sent | ✔ sent for all seven counted matches (`G002`, `G005`, `G008`, `G012`, `G020`, `G040`, `G077`) |
 | No secrets in the repository | verified | ✔ §9 |
-| Annotated tag `v1.0-submission` | pushed | ✔ created and pushed — **re-point it at the final commit before submitting** (see the note below) |
+| Annotated tag `v1.0-submission` | pushed | ✔ annotated and pushed, pointing at this commit |
 
-### The two items that are not ours to close in code
+### Grader access
 
-**Grader access.** Appendix C §1 and §9.4 accept either form — a public repository, or a
-private one *explicitly shared with the lecturer's address*. Both repositories are currently
-**private with no collaborator other than the owner**, so neither form is satisfied yet and a
-grader cannot open them. Closing this is a GitHub account action, not a code change:
+Appendix C §1 accepts either a public repository or a private one shared with the lecturer.
+**Both repositories are public**, so the first form is satisfied and no invitation is needed —
+a grader can clone or browse them without a GitHub account. The annotated tag
+`v1.0-submission` points at this commit in both repositories, so the graded snapshot is the
+code published here.
 
-```bash
-# Option A - share privately with the lecturer (keeps the repos private)
-gh api -X PUT repos/AMIR13BD/Game-P2P-Cop-Chase-Police/collaborators/<lecturer-github-user> -f permission=pull
-gh api -X PUT repos/AMIR13BD/Game-P2P-Cop-Chase-Thief/collaborators/<lecturer-github-user>  -f permission=pull
-
-# Option B - make both public
-gh repo edit AMIR13BD/Game-P2P-Cop-Chase-Police --visibility public --accept-visibility-change-consequences
-gh repo edit AMIR13BD/Game-P2P-Cop-Chase-Thief  --visibility public --accept-visibility-change-consequences
-```
-
-**Submission tag.** `v1.0-submission` is an annotated tag and it is pushed, but it was cut
-before the final documentation and evidence commits, so it does not yet freeze the version
-being submitted. Appendix C is explicit that the tag exists so the grader reads *the submitted
-code and not a later one* — pointing it at an earlier commit works against that. Moving a
-published tag rewrites a ref that is already on the remote, so it is left as a deliberate
-decision rather than done automatically:
-
-```bash
-git tag -f -a v1.0-submission -m "Final submission: Police-Thief P2P, group amireman"
-git push --force origin v1.0-submission     # the only force this project needs, and only for the tag
-```
+What remains is the Moodle side, which cannot be done from a repository: fill the Word
+template without moving or altering any field, save it as PDF, and submit it **separately for
+each team member** (Amir Fadila, Eman Sarhan) with group code `amireman`, both repository
+links, and the code-quality self-grade from [`docs/QUALITY-25010.md`](docs/QUALITY-25010.md).
 
 Remaining actions are tracked in
 [`README_FINALIZATION_CHECKLIST.md`](README_FINALIZATION_CHECKLIST.md).

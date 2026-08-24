@@ -19,18 +19,16 @@ complete evidence committed under `docs/evidence/`. Nothing below is waiting on 
 | 6 | End-of-game report e-mail sent, each group separately | all seven counted matches; ledger in [`docs/COST_AUDIT.md`](docs/COST_AUDIT.md) |
 | 7 | Quality gates green | pytest + 85% coverage floor, zero Ruff, 150-line limit, secret scan — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
 | 8 | Secret scan clean | `uv run python scripts/secret_scan.py` — gates on what git would publish |
-| 9 | Annotated submission tag created and pushed | `v1.0-submission` |
-| 10 | Companion repository cross-linked | README §6 → [Police repo](https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police) |
+| 9 | Annotated submission tag created and pushed | `v1.0-submission`, pointing at the submitted commit |
+| 10 | **Both repositories public** — Appendix C §1 satisfied without an invitation | GitHub repository settings |
+| 11 | Companion repository cross-linked | README §6 → [Police repo](https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police) |
 
-## Open — and none of these can be closed by editing this repository
+## Open — off-platform actions only
 
 | # | Action | Why it is not automated |
 |---|---|---|
-| A | **Grant the lecturer access to both repositories.** They are private with no collaborator but the owner, so Appendix C §1 is *not* satisfied in either of its two accepted forms. Either add the lecturer as a collaborator, or make both repos public. | Changes GitHub account state and repository visibility — an owner decision |
 | B | **Re-point `v1.0-submission` at the final commit.** The tag is pushed but was cut before the final documentation and evidence commits, so it does not freeze the submitted version. | Moving a published tag requires a force update of a remote ref |
-| C | **Moodle submission.** Download the Word template, fill it in without moving or altering any field, save as PDF, and submit — **separately for each team member** (Amir Fadila, Eman Sarhan), with group code `amireman` and both repository links. | Off-platform, per-student action |
-| D | **Enter the code-quality self-grade** on the Moodle form. Rule #55 and §11.5(ו) require it to score *code quality only*, never the league result. A defensible basis is in [`docs/QUALITY-25010.md`](docs/QUALITY-25010.md). | A judgement the team must make and sign |
-
-Commands for A and B are in README §14.
+| A | **Moodle submission.** Download the Word template, fill it in without moving or altering any field, save as PDF, and submit — **separately for each team member** (Amir Fadila, Eman Sarhan), with group code `amireman` and both repository links. | Off-platform, per-student action |
+| B | **Enter the code-quality self-grade** on the Moodle form. Rule #55 and §11.5(ו) require it to score *code quality only*, never the league result. A defensible basis is in [`docs/QUALITY-25010.md`](docs/QUALITY-25010.md). | A judgement the team must make and sign |
 
 Companion repository: https://github.com/AMIR13BD/Game-P2P-Cop-Chase-Police
